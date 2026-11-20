@@ -14,8 +14,7 @@ public partial class MainWindow
     private TrayShortcut WorkspaceGesture => _preferences.WorkspaceShortcut is { IsUsable: true } saved && !IsCaptureShortcut(saved)
         ? saved : TrayShortcut.Default;
 
-    private static bool IsCaptureShortcut(TrayShortcut shortcut) => shortcut.NativeModifiers == Native.ControlShift
-        && (shortcut.VirtualKey == 0x35 || Shortcuts.Any(item => item.Key == shortcut.VirtualKey));
+    private bool IsCaptureShortcut(TrayShortcut shortcut) => CaptureActionIds.Any(id => CaptureGesture(id) == shortcut);
 
     private void RegisterWorkspaceHotkey()
     {
@@ -42,6 +41,7 @@ public partial class MainWindow
             StopRecordingWorkspaceShortcut();
             return;
         }
+        StopRecordingCaptureShortcut();
 
         _recordingWorkspaceShortcut = true;
         WorkspaceShortcutButton.Focus();
@@ -132,12 +132,20 @@ public partial class MainWindow
 
     private bool InterceptShortcutWhileRecording(int id)
     {
-        if (!_recordingWorkspaceShortcut || !IsActive || SettingsLayer.Visibility != Visibility.Visible)
+        if ((!_recordingWorkspaceShortcut && _recordingCaptureShortcut is null) || !IsActive
+            || SettingsLayer.Visibility != Visibility.Visible)
             return false;
-        if (id == _workspaceHotkeyId)
+        if (_recordingCaptureShortcut is { } action && CaptureActionForRegistration(id) == action)
+            StopRecordingCaptureShortcut();
+        else if (_recordingWorkspaceShortcut && id == _workspaceHotkeyId)
             StopRecordingWorkspaceShortcut();
-        else if (id == LastCaptureShortcutId || Shortcuts.Any(shortcut => shortcut.Id == id))
-            ShowWorkspaceShortcutStatus("WorkspaceShortcutInUse");
+        else if (id == _workspaceHotkeyId || CaptureActionForRegistration(id) is not null)
+        {
+            if (_recordingWorkspaceShortcut)
+                ShowWorkspaceShortcutStatus("WorkspaceShortcutInUse");
+            else
+                ShowCaptureShortcutStatus("WorkspaceShortcutInUse");
+        }
         else
             return false;
         return true;

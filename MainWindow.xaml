@@ -224,8 +224,12 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
-                    <ItemsControl x:Name="HistoryItems" Margin="0,8,0,0">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <StackPanel x:Name="HistoryCardsPanel" Margin="0,8,0,0" SizeChanged="HistoryCardsPanel_SizeChanged">
+                    <Border x:Name="HistoryBeforeCards" Height="0"/>
+                    <ItemsControl x:Name="HistoryItems">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel ItemWidth="{x:Static local:HistoryViewport.TileWidth}" ItemHeight="{x:Static local:HistoryViewport.TileHeight}"/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type local:HistoryItem}">
                                 <Grid Width="221" Height="160" Margin="0,0,10,10">
@@ -259,7 +263,8 @@
                                         <Grid>
                                             <Grid.RowDefinitions><RowDefinition Height="103"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                                             <Border Margin="5" Background="{StaticResource Canvas}" CornerRadius="5">
-                                                <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                <Image Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                                                       Loaded="HistoryThumbnail_Loaded" Unloaded="HistoryThumbnail_Unloaded"/>
                                             </Border>
                                             <StackPanel Grid.Row="1" Margin="10,2,10,0">
                                                 <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
@@ -281,6 +286,8 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <Border x:Name="HistoryAfterCards" Height="0"/>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
 
@@ -691,6 +698,9 @@
                         <Border Height="1" Background="{StaticResource Stroke}" Margin="0,15"/>
                         <CheckBox x:Name="HotkeysSetting" Content="{DynamicResource Ui.Hotkeys}" Margin="0,0,0,7" Click="Preferences_Click"/>
                         <TextBlock x:Name="HotkeysInfo" TextWrapping="Wrap" FontSize="12" Style="{StaticResource MutedText}" LineHeight="19"/>
+                        <StackPanel x:Name="CaptureShortcutOptions"/>
+                        <TextBlock x:Name="CaptureShortcutStatus" Visibility="Collapsed" TextWrapping="Wrap" FontSize="11"
+                                   Style="{StaticResource MutedText}" Margin="0,5,0,0" AutomationProperties.LiveSetting="Polite"/>
                         <CheckBox x:Name="PrintScreenSetting" Content="{DynamicResource Ui.PrintScreen}" Margin="0,10,0,0" Click="Preferences_Click"/>
                         <DockPanel Margin="0,10,0,0">
                             <Button x:Name="WorkspaceShortcutButton" DockPanel.Dock="Right" MinWidth="115" Padding="9,5" Margin="10,0,0,0"
@@ -703,7 +713,7 @@
                                    Style="{StaticResource MutedText}" Margin="0,5,0,0" AutomationProperties.LiveSetting="Polite"/>
                         <Border Height="1" Background="{StaticResource Stroke}" Margin="0,15"/>
                         <CheckBox x:Name="HistorySetting" Content="{DynamicResource Ui.KeepHistory}" Margin="0,0,0,7" Click="Preferences_Click"/>
-                        <TextBlock Text="{DynamicResource Ui.HistoryLimit}" FontSize="12" Style="{StaticResource MutedText}"/>
+                        <TextBlock Text="{DynamicResource Ui.HistoryArchiveHint}" FontSize="12" Style="{StaticResource MutedText}" TextWrapping="Wrap"/>
                         <TextBlock Text="{DynamicResource Ui.HistorySourceNote}" FontSize="12" Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,3,0,0"/>
                         <TextBlock Text="{DynamicResource Ui.StorageFolderTitle}" FontWeight="SemiBold" Margin="0,13,0,6"/>
                         <DockPanel Margin="0,0,0,8">
@@ -724,9 +734,9 @@
                         </StackPanel>
                         <Border x:Name="ClearConfirmation" Background="{StaticResource Canvas}" Padding="11" CornerRadius="8" Margin="0,8,0,0" Visibility="Collapsed">
                             <DockPanel>
-                                <Button DockPanel.Dock="Right" Content="{DynamicResource Ui.Delete}" Click="ConfirmClearHistory_Click"/>
+                                <Button DockPanel.Dock="Right" Content="{DynamicResource Ui.ClearHistory}" Click="ConfirmClearHistory_Click"/>
                                 <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{DynamicResource Ui.Cancel}" Click="CancelClearHistory_Click" Margin="0,0,6,0"/>
-                                <TextBlock Text="{DynamicResource Ui.DeleteConfirm}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource Ui.DeleteConfirm}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                             </DockPanel>
                         </Border>
                         </StackPanel>

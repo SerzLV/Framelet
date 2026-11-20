@@ -17,6 +17,9 @@ internal static partial class OcrService
     internal const string AutomaticMode = "auto";
     private const string MixedLanguages = "rus+lav+eng";
     private static readonly SemaphoreSlim Worker = new(1);
+    private static TesseractEngine? _engine;
+    private static string? _engineLanguages;
+    private static volatile bool _shuttingDown;
 
     internal static async Task<RecognizedImage> RecognizeAsync(BitmapSource image, string language, CancellationToken token)
     {
@@ -42,20 +45,67 @@ internal static partial class OcrService
         finally
         {
             Worker.Release();
+            if (_shuttingDown)
+                ReleaseResources();
         }
     }
 
     private static OcrLayout Recognize(BitmapSource image, string language, bool includeWords, CancellationToken token)
     {
-        var directory = Path.GetDirectoryName(typeof(OcrService).Assembly.Location) ?? AppContext.BaseDirectory;
-        var data = Path.Combine(directory, "Assets", "Ocr");
         token.ThrowIfCancellationRequested();
         var automatic = language == AutomaticMode;
-        using var engine = new TesseractEngine(data, automatic ? MixedLanguages : language, EngineMode.LstmOnly);
-        engine.SetVariable("user_defined_dpi", "144");
+        if (_shuttingDown)
+            throw new OperationCanceledException();
+        var engine = GetEngine(automatic ? MixedLanguages : language);
         return image.PixelHeight > 4700 && image.PixelHeight > image.PixelWidth * 2L
             ? RecognizeTallImage(engine, image, includeWords, automatic, token)
             : RecognizePage(engine, image, includeWords, automatic, token);
+    }
+
+    private static TesseractEngine GetEngine(string languages)
+    {
+        if (_engine is not null && _engineLanguages == languages)
+            return _engine;
+
+        _engine?.Dispose();
+        _engine = null;
+        _engineLanguages = null;
+        var directory = Path.GetDirectoryName(typeof(OcrService).Assembly.Location) ?? AppContext.BaseDirectory;
+        var engine = new TesseractEngine(Path.Combine(directory, "Assets", "Ocr"), languages, EngineMode.LstmOnly);
+        try
+        {
+            engine.SetVariable("user_defined_dpi", "144");
+        }
+        catch
+        {
+            engine.Dispose();
+            throw;
+        }
+        _engine = engine;
+        _engineLanguages = languages;
+        return engine;
+    }
+
+    internal static void Shutdown()
+    {
+        _shuttingDown = true;
+        ReleaseResources();
+    }
+
+    private static void ReleaseResources()
+    {
+        if (!Worker.Wait(0))
+            return;
+        try
+        {
+            _engine?.Dispose();
+            _engine = null;
+            _engineLanguages = null;
+        }
+        finally
+        {
+            Worker.Release();
+        }
     }
 
     private static OcrLayout RecognizePage(TesseractEngine engine, BitmapSource image, bool includeWords, bool automatic, CancellationToken token)

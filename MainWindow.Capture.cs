@@ -11,7 +11,6 @@ public partial class MainWindow
 {
     private const int ScrollingShortcutId = 8104;
     private const int LastCaptureShortcutId = 8105;
-    private const string ScrollingShortcutText = "Ctrl + Shift + 4";
     private static readonly (int Id, uint Key, CaptureMode Mode)[] Shortcuts =
     [
         (8101, 0x31, CaptureMode.Region),
@@ -19,14 +18,34 @@ public partial class MainWindow
         (8103, 0x33, CaptureMode.Window),
         (ScrollingShortcutId, 0x34, CaptureMode.Scrolling)
     ];
+    private static readonly int[] CaptureActionIds = [.. Shortcuts.Select(shortcut => shortcut.Id), LastCaptureShortcutId];
 
     private readonly ForegroundWindowTracker _foregroundTracker;
     private readonly PrintScreenShortcut _printScreen;
-    private readonly HashSet<int> _registered = [];
+    private readonly Dictionary<int, int> _registered = [];
     private Forms.NotifyIcon? _tray;
     private Drawing.Icon? _trayIcon;
     private HwndSource? _windowSource;
     private ScrollCaptureWindow? _scrollCapture;
+    private bool _quickCapturePending;
+
+    private void RequestQuickCapture()
+    {
+        if (_quitting || !_printScreen.IsActive)
+            return;
+        if (_busy)
+            _quickCapturePending = true;
+        else
+            _ = CaptureAsync(CaptureMode.QuickClipboard);
+    }
+
+    private void RunPendingQuickCapture()
+    {
+        if (_busy || !_quickCapturePending)
+            return;
+        _quickCapturePending = false;
+        Dispatcher.InvokeAsync(RequestQuickCapture);
+    }
 
     private void AttachCaptureCommands()
     {
@@ -99,14 +118,14 @@ public partial class MainWindow
         if (_tray?.ContextMenuStrip is not TrayMenu menu)
             return;
 
-        for (var index = 0; index < Shortcuts.Length; index++)
+        foreach (var shortcut in Shortcuts)
         {
-            var shortcut = Shortcuts[index];
-            var text = _registered.Contains(shortcut.Id) ? $"Ctrl+Shift+{index + 1}" : "";
+            var text = _registered.ContainsKey(shortcut.Id) ? CaptureGesture(shortcut.Id).Display("+") : "";
             menu.SetShortcut("Capture" + shortcut.Mode, text);
         }
         menu.SetShortcut("CaptureQuickClipboard", _printScreen.IsActive ? "PrtSc" : "");
-        menu.SetShortcut("OpenLastCapture", _registered.Contains(LastCaptureShortcutId) ? "Ctrl+Shift+5" : "");
+        menu.SetShortcut("OpenLastCapture", _registered.ContainsKey(LastCaptureShortcutId)
+            ? CaptureGesture(LastCaptureShortcutId).Display("+") : "");
         menu.SetShortcut("TrayOpen", _workspaceHotkeyId is not null ? WorkspaceGesture.Display("+") : "");
     }
 
@@ -115,13 +134,11 @@ public partial class MainWindow
         UnregisterHotkeys();
         if (_preferences.Hotkeys && _windowSource is not null)
         {
-            foreach (var (id, key, _) in Shortcuts)
+            foreach (var id in CaptureActionIds)
             {
-                if (Native.RegisterHotKey(_windowSource.Handle, id, Native.ControlShift, key))
-                    _registered.Add(id);
+                if (RegisterWorkspaceHotkey(id, CaptureGesture(id)))
+                    _registered.Add(id, id);
             }
-            if (Native.RegisterHotKey(_windowSource.Handle, LastCaptureShortcutId, Native.ControlShift, 0x35))
-                _registered.Add(LastCaptureShortcutId);
         }
 
         RegisterWorkspaceHotkey();
@@ -131,34 +148,33 @@ public partial class MainWindow
 
     private void UpdateHotkeyLabels()
     {
-        var hasRegion = _registered.Contains(Shortcuts[0].Id);
+        var hasRegion = _registered.ContainsKey(Shortcuts[0].Id);
+        var region = CaptureGesture(Shortcuts[0].Id).Display();
         var hasPrintScreen = _printScreen.IsActive;
         ClipboardKeycap.Visibility = hasPrintScreen ? Visibility.Visible : Visibility.Collapsed;
         EditorRegionShortcutLabel.Visibility = hasRegion ? Visibility.Visible : Visibility.Collapsed;
-        ScrollShortcutLabel.Text = ScrollingShortcutText;
-        ScrollShortcutLabel.Visibility = _registered.Contains(ScrollingShortcutId) ? Visibility.Visible : Visibility.Collapsed;
-        FooterHint.Text = hasPrintScreen ? UiText.Get("FooterPrintRegion") : hasRegion ? UiText.Get("FooterRegion") : "";
+        EditorRegionShortcutLabel.Text = region;
+        ScrollShortcutLabel.Text = CaptureGesture(ScrollingShortcutId).Display();
+        ScrollShortcutLabel.Visibility = _registered.ContainsKey(ScrollingShortcutId) ? Visibility.Visible : Visibility.Collapsed;
+        FooterHint.Text = hasPrintScreen ? UiText.Get("FooterPrintRegion") : hasRegion ? UiText.Format("FooterRegion", region) : "";
         HotkeysInfo.Text = !_preferences.Hotkeys
-            ? UiText.Get("HotkeysOff")
-            : string.Join(Environment.NewLine, Shortcuts.Select((shortcut, index) =>
-                $"Ctrl + Shift + {index + 1} — {ShortcutLabel(shortcut.Mode)}{(_registered.Contains(shortcut.Id) ? "" : " " + UiText.Get("ShortcutOccupied"))}"));
+            ? UiText.Get("HotkeysOff") : "";
         if (_preferences.Hotkeys && _preferences.PrintScreen && !hasPrintScreen)
-            HotkeysInfo.Text += Environment.NewLine + UiText.Get("PrintUnavailable");
-        if (_preferences.Hotkeys)
-            HotkeysInfo.Text += Environment.NewLine + $"Ctrl + Shift + 5 — {UiText.Get("OpenLastCapture")}" +
-                (_registered.Contains(LastCaptureShortcutId) ? "" : " " + UiText.Get("ShortcutOccupied"));
+            HotkeysInfo.Text = UiText.Get("PrintUnavailable");
+        HotkeysInfo.Visibility = HotkeysInfo.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         PrintScreenSetting.IsEnabled = _preferences.Hotkeys;
+        RefreshCaptureShortcuts();
         RefreshWorkspaceShortcut();
         UpdateTrayShortcuts();
     }
 
-    private static string ShortcutLabel(CaptureMode mode) => mode switch
+    private static string CaptureLabelKey(CaptureMode mode) => mode switch
     {
-        CaptureMode.Region => UiText.Get("ShortcutRegion"),
-        CaptureMode.Screen => UiText.Get("ShortcutScreen"),
-        CaptureMode.Scrolling => UiText.Get("ShortcutScrolling"),
-        _ => UiText.Get("ShortcutWindow")
+        CaptureMode.Region => "ShortcutRegion",
+        CaptureMode.Screen => "ShortcutScreen",
+        CaptureMode.Scrolling => "ShortcutScrolling",
+        _ => "ShortcutWindow"
     };
 
     private void UnregisterHotkeys()
@@ -166,7 +182,7 @@ public partial class MainWindow
         UnregisterWorkspaceHotkey();
         if (_windowSource is not null)
         {
-            foreach (var id in _registered)
+            foreach (var id in _registered.Values)
                 Native.UnregisterHotKey(_windowSource.Handle, id);
         }
         _registered.Clear();
@@ -188,7 +204,8 @@ public partial class MainWindow
                 ToggleWorkspace();
                 return IntPtr.Zero;
             }
-            if (id == LastCaptureShortcutId)
+            var action = CaptureActionForRegistration(id);
+            if (action == LastCaptureShortcutId)
             {
                 handled = true;
                 RequestOpenLastCapture();
@@ -196,7 +213,7 @@ public partial class MainWindow
             }
             foreach (var shortcut in Shortcuts)
             {
-                if (id != shortcut.Id)
+                if (action != shortcut.Id)
                     continue;
 
                 handled = true;
@@ -323,7 +340,7 @@ public partial class MainWindow
 
         var scrollTarget = new ScrollWheelTarget(selection.Bounds);
         var stitcher = await Task.Run(() => new ScrollStitcher(selection.Image));
-        var shortcut = _registered.Contains(ScrollingShortcutId) ? ScrollingShortcutText : null;
+        var shortcut = _registered.ContainsKey(ScrollingShortcutId) ? CaptureGesture(ScrollingShortcutId).Display() : null;
         var capture = new ScrollCaptureWindow(selection, stitcher, scrollTarget, shortcut);
         _scrollCapture = capture;
         try

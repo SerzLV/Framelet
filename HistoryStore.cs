@@ -3,13 +3,16 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Threading;
 using System.Windows.Media.Imaging;
+using Microsoft.VisualBasic.FileIO;
 
 namespace Framelet;
 
-internal sealed record Preferences(bool Hotkeys = true, bool KeepHistory = true, string Language = "ru", bool PrintScreen = true,
+internal sealed record Preferences(bool Hotkeys = true, bool KeepHistory = true, string? Language = null, bool PrintScreen = true,
     string? StorageFolder = null, string[]? HistoryFolders = null, TrayShortcut? WorkspaceShortcut = null,
-    WorkspaceSize? WindowSize = null, PalettePreferences? Palette = null);
+    WorkspaceSize? WindowSize = null, PalettePreferences? Palette = null, DateTime? HistoryClearedUtc = null,
+    Dictionary<int, TrayShortcut>? CaptureShortcuts = null);
 
 internal sealed record WorkspaceSize(double Width, double Height, bool Maximized)
 {
@@ -18,7 +21,7 @@ internal sealed record WorkspaceSize(double Width, double Height, bool Maximized
 
 internal sealed record PalettePreferences(string Color, string[] RecentColors);
 
-internal sealed record HistoryItem(string FilePath, BitmapSource Thumbnail, DateTime CreatedUtc, int Width, int Height)
+internal sealed record HistoryItem(string FilePath, DateTime CreatedUtc, int Width, int Height)
 {
     private DateTime LocalDate => CreatedUtc.ToLocalTime();
 
@@ -35,23 +38,25 @@ internal sealed record HistoryItem(string FilePath, BitmapSource Thumbnail, Date
 
 internal sealed class HistoryStore
 {
-    internal const int MaxItems = 50;
     private const string DateFormat = "yyyyMMdd-HHmmss-fffffff";
     private const string EditIdQuery = "/tEXt/{str=FrameletEditId}";
     private const string HistoryQuery = "/tEXt/{str=FrameletHistory}";
     private readonly object _gate = new();
     private readonly string _settingsPath;
     private readonly string _editFolder;
+    private readonly HistoryTextCache _textCache;
     private string[] _libraryFolders;
+    private DateTime? _historyClearedUtc;
 
-    internal HistoryStore()
+    internal HistoryStore(string? dataDirectory = null)
     {
-        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Framelet");
+        var data = dataDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Framelet");
         DefaultFolder = Path.Combine(data, "History");
         Folder = DefaultFolder;
         _libraryFolders = [DefaultFolder];
         _editFolder = Path.Combine(data, "Edits");
         _settingsPath = Path.Combine(data, "preferences.json");
+        _textCache = new HistoryTextCache(Path.Combine(data, "OcrIndex"));
     }
 
     internal string DefaultFolder { get; }
@@ -62,8 +67,19 @@ internal sealed class HistoryStore
         lock (_gate)
         {
             Folder = NormalizeFolder(preferences.StorageFolder) ?? DefaultFolder;
+            _historyClearedUtc = preferences.HistoryClearedUtc;
             _libraryFolders = (preferences.HistoryFolders ?? []).Select(NormalizeFolder).OfType<string>()
                 .Append(DefaultFolder).Append(Folder).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+    }
+
+    internal void ForgetHistory(DateTime cutoffUtc)
+    {
+        lock (_gate)
+        {
+            _historyClearedUtc = cutoffUtc;
+            _textCache.Clear();
+            PruneJournals(live: null, writtenBy: cutoffUtc);
         }
     }
 
@@ -116,21 +132,66 @@ internal sealed class HistoryStore
     internal IReadOnlyList<HistoryItem> Load()
     {
         lock (_gate)
+            return LoadAndClean();
+    }
+
+    private IReadOnlyList<HistoryItem> LoadAndClean()
+    {
+        var items = new List<HistoryItem>();
+        var liveJournals = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var complete = true;
+        foreach (var folder in _libraryFolders)
         {
-            var items = new List<HistoryItem>();
-            foreach (var path in Entries().Take(MaxItems))
+            try
             {
-                try
+                foreach (var file in new DirectoryInfo(folder).EnumerateFiles("*.png"))
                 {
-                    items.Add(ReadItem(path));
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or FormatException)
-                {
-                    // A missing or damaged entry should not hide the rest of the history.
+                    var created = TryReadLegacyTimestamp(file.Name, out var legacy) ? legacy : file.CreationTimeUtc;
+                    if (_historyClearedUtc is { } cutoff && created <= cutoff)
+                        continue;
+                    try
+                    {
+                        using var stream = File.OpenRead(file.FullName);
+                        var frame = BitmapFrame.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.OnDemand);
+                        if (ReadHistoryMarker(frame, out var id))
+                        {
+                            if (id is not null)
+                                liveJournals.Add(id);
+                            items.Add(new HistoryItem(file.FullName, created, frame.PixelWidth, frame.PixelHeight));
+                        }
+                    }
+                    catch (FileNotFoundException)
+                    {
+                        // The file was removed after enumeration.
+                    }
+                    catch (Exception error) when (error is NotSupportedException or FormatException)
+                    {
+                        Trace.WriteLine(error);
+                    }
+                    catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                    {
+                        complete = false;
+                        Trace.WriteLine(error);
+                    }
                 }
             }
-            return items;
+            catch (DirectoryNotFoundException) when (string.Equals(folder, DefaultFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                // Framelet creates the default folder on its first save.
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                complete = false;
+                Trace.WriteLine(error);
+            }
         }
+
+        if (complete)
+        {
+            PruneJournals(liveJournals);
+            _textCache.Prune(items.Select(item => item.FilePath));
+        }
+        return items.OrderByDescending(item => item.CreatedUtc).ThenByDescending(item => item.FilePath, StringComparer.Ordinal).ToArray();
     }
 
     internal HistoryItem Put(string path, BitmapSource image, EditorDocument? document = null)
@@ -153,7 +214,7 @@ internal sealed class HistoryStore
                         stream.Position = 0;
                         WriteJournal(id, document!, Convert.ToHexString(SHA256.HashData(stream)));
                     }
-                }, createdUtc);
+                }, createdUtc, overwrite: exists);
             }
             catch
             {
@@ -161,40 +222,22 @@ internal sealed class HistoryStore
                 throw;
             }
             TryDeleteJournal(previousId);
-            if (!exists)
-                foreach (var expired in Entries().Skip(MaxItems))
-                    DeleteEntry(expired);
-
-            return ReadItem(path, image.PixelWidth, image.PixelHeight);
+            if (exists)
+                _textCache.Remove(path);
+            return new HistoryItem(path, createdUtc, image.PixelWidth, image.PixelHeight);
         }
     }
 
-    internal void Clear()
+    internal IReadOnlyList<HistoryItem> Delete(string path)
     {
         lock (_gate)
         {
-            foreach (var path in Entries())
-                DeleteEntry(path);
-
-            if (_libraryFolders.Length == 1 && Directory.Exists(_editFolder))
-                foreach (var journal in Directory.EnumerateFiles(_editFolder, "*.framelet"))
-                    File.Delete(journal);
+            if (!BelongsToHistory(path))
+                throw new IOException("The screenshot is no longer a Framelet history file.");
+            FileSystem.DeleteFile(path, UIOption.AllDialogs, RecycleOption.SendToRecycleBin, UICancelOption.ThrowException);
+            _textCache.Remove(path);
+            return LoadAndClean();
         }
-    }
-
-    internal void Delete(string path)
-    {
-        lock (_gate)
-            DeleteEntry(path);
-    }
-
-    private void DeleteEntry(string path)
-    {
-        if (!BelongsToHistory(path))
-            return;
-        var id = ReadEditId(path);
-        File.Delete(path);
-        TryDeleteJournal(id);
     }
 
     internal EditorDocument OpenEditorDocument(string path)
@@ -251,6 +294,7 @@ internal sealed class HistoryStore
             try
             {
                 File.Move(item.FilePath, target);
+                _textCache.Remove(item.FilePath);
                 return (item with { FilePath = target }, null);
             }
             catch (IOException) when (!caseOnly && (File.Exists(target) || Directory.Exists(target)))
@@ -272,6 +316,35 @@ internal sealed class HistoryStore
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
         return DecodeImage(stream);
+    }
+
+    internal async Task<string> ReadHistoryTextAsync(string path, CancellationToken token)
+    {
+        var entry = await Task.Run(() =>
+        {
+            lock (_gate)
+            {
+                var stamp = ImageStamp.FromPath(path);
+                return (Stamp: stamp, Text: _textCache.Read(path, stamp), ClearedUtc: _historyClearedUtc);
+            }
+        }, token).ConfigureAwait(false);
+        if (entry.Text is { } cached)
+            return cached;
+
+        var image = await Task.Run(() => OpenImage(path), token).ConfigureAwait(false);
+        var text = await OcrService.RecognizeTextAsync(image, token).ConfigureAwait(false);
+        await Task.Run(() =>
+        {
+            lock (_gate)
+            {
+                token.ThrowIfCancellationRequested();
+                if (File.Exists(path) && entry.ClearedUtc == _historyClearedUtc
+                    && (_historyClearedUtc is null || ReadCreatedUtc(path) > _historyClearedUtc)
+                    && ImageStamp.FromPath(path) == entry.Stamp)
+                    _textCache.Write(path, entry.Stamp, text);
+            }
+        }, token).ConfigureAwait(false);
+        return text;
     }
 
     private static BitmapFrame DecodeImage(Stream stream)
@@ -356,11 +429,8 @@ internal sealed class HistoryStore
 
     private static string? GetEditId(BitmapFrame image)
     {
-        if (image.Metadata is not BitmapMetadata metadata)
-            return null;
-
-        var id = metadata.GetQuery(HistoryQuery) as string ?? metadata.GetQuery(EditIdQuery) as string;
-        return Guid.TryParseExact(id, "N", out _) ? id : null;
+        ReadHistoryMarker(image, out var id);
+        return id;
     }
 
     private void TryDeleteJournal(string? id)
@@ -379,35 +449,33 @@ internal sealed class HistoryStore
 
     private sealed record StoredJournal(string Digest, EditJournal Journal);
 
-    private string[] Entries()
+    private void PruneJournals(HashSet<string>? live, DateTime? writtenBy = null)
     {
-        var entries = new List<string>();
-        foreach (var folder in _libraryFolders)
+        try
         {
-            try
+            if (!Directory.Exists(_editFolder))
+                return;
+            foreach (var path in Directory.EnumerateFiles(_editFolder, "*.framelet"))
             {
-                if (Directory.Exists(folder))
-                    entries.AddRange(Directory.GetFiles(folder, "*.png").Where(BelongsToHistory));
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                Trace.WriteLine(ex);
+                var id = Path.GetFileNameWithoutExtension(path);
+                if (Guid.TryParseExact(id, "N", out _) && live?.Contains(id) != true
+                    && (writtenBy is null || File.GetLastWriteTimeUtc(path) <= writtenBy))
+                    TryDeleteJournal(id);
             }
         }
-        return entries.OrderByDescending(ReadCreatedUtc).ThenByDescending(path => path, StringComparer.Ordinal).ToArray();
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Trace.WriteLine(error);
+        }
     }
 
     private bool BelongsToHistory(string path)
     {
-        if (string.Equals(Path.GetDirectoryName(path), DefaultFolder, StringComparison.OrdinalIgnoreCase))
-            return true;
-
         try
         {
             using var stream = File.OpenRead(path);
             var frame = BitmapFrame.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.OnDemand);
-            return frame.Metadata is BitmapMetadata metadata && metadata.GetQuery(HistoryQuery) is string marker
-                && (marker == "1" || Guid.TryParseExact(marker, "N", out _));
+            return ReadHistoryMarker(frame, out _);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or FormatException)
         {
@@ -415,29 +483,34 @@ internal sealed class HistoryStore
         }
     }
 
-    private static HistoryItem ReadItem(string path, int width = 0, int height = 0)
+    private static bool ReadHistoryMarker(BitmapFrame frame, out string? editId)
     {
-        using var stream = File.OpenRead(path);
-        if (width == 0 || height == 0)
-        {
-            var frame = BitmapFrame.Create(stream, BitmapCreateOptions.DelayCreation, BitmapCacheOption.OnDemand);
-            width = frame.PixelWidth;
-            height = frame.PixelHeight;
-            stream.Position = 0;
-        }
+        editId = null;
+        if (frame.Metadata is not BitmapMetadata metadata)
+            return false;
+        var marker = metadata.GetQuery(HistoryQuery) as string;
+        if (Guid.TryParseExact(marker, "N", out _))
+            editId = marker;
+        else if (metadata.GetQuery(EditIdQuery) is string legacy && Guid.TryParseExact(legacy, "N", out _))
+            editId = legacy;
+        return marker == "1" || editId is not null;
+    }
 
+    internal static BitmapSource ReadThumbnail(HistoryItem item)
+    {
+        using var stream = new FileStream(item.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
         var thumbnail = new BitmapImage();
         thumbnail.BeginInit();
         thumbnail.StreamSource = stream;
         thumbnail.CacheOption = BitmapCacheOption.OnLoad;
-        if (width >= height)
-            thumbnail.DecodePixelWidth = Math.Min(width, 420);
+        if (item.Width >= item.Height)
+            thumbnail.DecodePixelWidth = Math.Min(item.Width, 420);
         else
-            thumbnail.DecodePixelHeight = Math.Min(height, 240);
+            thumbnail.DecodePixelHeight = Math.Min(item.Height, 240);
         thumbnail.EndInit();
         thumbnail.Freeze();
 
-        return new HistoryItem(path, thumbnail, ReadCreatedUtc(path), width, height);
+        return thumbnail;
     }
 
     private static DateTime ReadCreatedUtc(string path)
@@ -453,7 +526,7 @@ internal sealed class HistoryStore
                 DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out time);
     }
 
-    private static void AtomicWrite(string path, Action<Stream> write, DateTime? createdUtc = null)
+    internal static void AtomicWrite(string path, Action<Stream> write, DateTime? createdUtc = null, bool overwrite = true)
     {
         var directory = Path.GetDirectoryName(path)!;
         Directory.CreateDirectory(directory);
@@ -465,7 +538,7 @@ internal sealed class HistoryStore
 
             if (createdUtc is { } date)
                 File.SetCreationTimeUtc(temporary, date);
-            File.Move(temporary, path, overwrite: true);
+            File.Move(temporary, path, overwrite);
         }
         finally
         {

@@ -10,7 +10,7 @@ namespace Framelet;
 
 internal static class AuxiliaryWindows
 {
-    internal static string? AskForText(Window owner)
+    internal static string? AskForText(Window owner, string? currentText = null)
     {
         var window = new Window
         {
@@ -26,6 +26,7 @@ internal static class AuxiliaryWindows
         var field = new TextBox
         {
             MinHeight = 87,
+            Text = currentText ?? "",
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -37,7 +38,7 @@ internal static class AuxiliaryWindows
         var cancel = new Button { Content = UiText.Get("Cancel"), IsCancel = true, Margin = new Thickness(0, 0, 7, 0) };
         var apply = new Button
         {
-            Content = UiText.Get("Add"),
+            Content = UiText.Get(currentText is null ? "Add" : "Save"),
             Style = (Style)Application.Current.FindResource("PrimaryButton"),
             ToolTip = "Ctrl + Enter"
         };

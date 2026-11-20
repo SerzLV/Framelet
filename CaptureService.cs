@@ -40,20 +40,20 @@ internal static class CaptureService
     {
         if (window == IntPtr.Zero || !Native.IsWindowVisible(window) || Native.IsIconic(window))
         {
-            throw new InvalidOperationException(UiText.Get("PickWindow"));
+            throw new UserFacingException("PickWindow");
         }
 
         if (Native.DwmGetWindowAttribute(window, 9, out var rect, Marshal.SizeOf<Native.WindowRect>()) != 0
             && !Native.GetWindowRect(window, out rect))
         {
-            throw new InvalidOperationException(UiText.Get("WindowBoundsFailure"));
+            throw new UserFacingException("WindowBoundsFailure");
         }
 
         var bounds = Drawing.Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
         bounds.Intersect(Forms.SystemInformation.VirtualScreen);
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
-            throw new InvalidOperationException(UiText.Get("WindowOffscreen"));
+            throw new UserFacingException("WindowOffscreen");
         }
 
         return Capture(bounds);

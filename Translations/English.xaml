@@ -15,7 +15,7 @@
     <sys:String x:Key="Ui.WindowDescription">Window active before Framelet</sys:String>
     <sys:String x:Key="Ui.CaptureDelayed">Delayed capture</sys:String>
     <sys:String x:Key="Ui.DelayedDescription">Select a region after 3 seconds</sys:String>
-    <sys:String x:Key="Ui.Recent">Recent screenshots</sys:String>
+    <sys:String x:Key="Ui.Recent">Screenshot history</sys:String>
     <sys:String x:Key="Ui.EmptyTitle">No screenshots yet</sys:String>
     <sys:String x:Key="Ui.EmptyDescription">Take a screenshot to see it here.</sys:String>
     <sys:String x:Key="Ui.OcrAction">Recognize text</sys:String>
@@ -90,7 +90,7 @@
     <sys:String x:Key="Ui.Fit">Fit</sys:String>
     <sys:String x:Key="Ui.TwoHeads">Two arrowheads</sys:String>
     <sys:String x:Key="Ui.TwoHeadsTip">Add an arrowhead at the start</sys:String>
-    <sys:String x:Key="Ui.FooterRegion">Ctrl + Shift + 1 · open in editor</sys:String>
+    <sys:String x:Key="Ui.FooterRegion">{0} · open in editor</sys:String>
     <sys:String x:Key="Ui.Ready">Ready to capture</sys:String>
     <sys:String x:Key="Ui.CloseSettings">Close settings</sys:String>
     <sys:String x:Key="Ui.Hotkeys">Global keyboard shortcuts</sys:String>
@@ -105,19 +105,19 @@
     <sys:String x:Key="Ui.PrintUnavailable">Could not enable Print Screen.</sys:String>
     <sys:String x:Key="Ui.FooterPrintRegion">PrtSc · copy to clipboard</sys:String>
     <sys:String x:Key="Ui.KeepHistory">Keep screenshots in local history</sys:String>
-    <sys:String x:Key="Ui.HistoryLimit">Up to 50 screenshots and 10 undo steps per screenshot.</sys:String>
+    <sys:String x:Key="Ui.HistoryArchiveHint">History includes all saved Framelet screenshots. Clearing the list keeps the files in your folder.</sys:String>
     <sys:String x:Key="Ui.HistorySourceNote">Framelet keeps the original image on this device for undo.</sys:String>
     <sys:String x:Key="Ui.OpenFolder">Open folder</sys:String>
     <sys:String x:Key="Ui.ClearHistory">Clear history</sys:String>
     <sys:String x:Key="Ui.Delete">Delete</sys:String>
     <sys:String x:Key="Ui.Cancel">Cancel</sys:String>
-    <sys:String x:Key="Ui.DeleteConfirm">Delete all screenshots?</sys:String>
+    <sys:String x:Key="Ui.DeleteConfirm">Clear the list and its edit history? Saved PNGs stay in your folders.</sys:String>
     <sys:String x:Key="Ui.InterfaceLanguage">Interface language</sys:String>
     <sys:String x:Key="Ui.AnnotationText">Text on screenshot</sys:String>
     <sys:String x:Key="Ui.Add">Add</sys:String>
     <sys:String x:Key="Ui.PinnedTitle">Framelet · Pinned screenshot</sys:String>
     <sys:String x:Key="Ui.ClosePin">Close screenshot</sys:String>
-    <sys:String x:Key="Ui.PickWindow">Activate the window you want to capture and press Ctrl + Shift + 3.</sys:String>
+    <sys:String x:Key="Ui.PickWindow">Activate the window you want to capture, then use the active-window capture shortcut.</sys:String>
     <sys:String x:Key="Ui.WindowBoundsFailure">Could not determine the window bounds.</sys:String>
     <sys:String x:Key="Ui.WindowOffscreen">The window is off-screen.</sys:String>
     <sys:String x:Key="Ui.OcrWorking">Recognizing text on your device…</sys:String>
@@ -244,4 +244,5 @@
     <sys:String x:Key="Ui.WorkspaceShortcutInvalid">Use Ctrl or Alt with a letter, number, or function key. Windows reserves F12.</sys:String>
     <sys:String x:Key="Ui.WorkspaceShortcutInUse">This shortcut is unavailable. Choose another one.</sys:String>
     <sys:String x:Key="Ui.WorkspaceShortcutSaved">Tray shortcut saved</sys:String>
+    <sys:String x:Key="Ui.CaptureShortcutSaved">Capture shortcut saved</sys:String>
 </ResourceDictionary>

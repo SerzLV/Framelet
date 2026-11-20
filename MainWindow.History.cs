@@ -11,6 +11,7 @@ public partial class MainWindow
 {
     private HistoryItem? _renameTarget;
     private readonly Dictionary<HistoryItem, string> _historyText = new(ReferenceEqualityComparer.Instance);
+    private HashSet<HistoryItem> _historyMembership = new(ReferenceEqualityComparer.Instance);
     private CancellationTokenSource? _historyIndexRequest;
     private bool _historyIndexUnavailable;
 
@@ -21,6 +22,7 @@ public partial class MainWindow
 
         var top = HistoryHeader.TranslatePoint(new Point(), HomeView).Y - HistoryHeaderOffset.Y;
         HistoryHeaderOffset.Y = Math.Max(0, -top);
+        RequestHistoryLayout();
     }
 
     private void OpenHistoryMenu_Click(object sender, RoutedEventArgs e)
@@ -74,8 +76,14 @@ public partial class MainWindow
         {
             await RunOperation(async () =>
             {
-                await Task.Run(() => _history.Delete(item.FilePath));
-                RefreshHistory(_recent.Where(entry => entry.FilePath != item.FilePath).ToArray());
+                try
+                {
+                    RefreshHistory(await Task.Run(() => _history.Delete(item.FilePath)));
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
                 Report(UiText.Get("HistoryItemDeleted"));
             });
         }
@@ -166,8 +174,10 @@ public partial class MainWindow
     private void RefreshHistory(IReadOnlyList<HistoryItem> items)
     {
         _recent = items;
-        foreach (var entry in _historyText.Keys.Where(entry => !items.Contains(entry, ReferenceEqualityComparer.Instance)).ToArray())
+        _historyMembership = new HashSet<HistoryItem>(items, ReferenceEqualityComparer.Instance);
+        foreach (var entry in _historyText.Keys.Where(entry => !_historyMembership.Contains(entry)).ToArray())
             _historyText.Remove(entry);
+        RemoveOldThumbnails();
         ClearHistoryButton.IsEnabled = items.Count > 0;
         FilterHistory();
         UpdateHistoryIndex();
@@ -183,11 +193,11 @@ public partial class MainWindow
                 || entry.FileName.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || (_historyText.TryGetValue(entry, out var text) && text.Contains(contentQuery, StringComparison.OrdinalIgnoreCase))).ToArray()
             : _recent;
-        if (HistoryItems.ItemsSource is not IEnumerable<HistoryItem> displayed || !displayed.SequenceEqual(visible))
-            HistoryItems.ItemsSource = visible;
+        _filteredHistory = visible;
+        RequestHistoryLayout();
         HistorySearchClear.Visibility = HistorySearch.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         EmptyHistory.Visibility = visible.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        HistoryCount.Text = searching ? $"{visible.Count} / {_recent.Count}" : _recent.Count == 0 ? "" : $"{_recent.Count} / {HistoryStore.MaxItems}";
+        HistoryCount.Text = searching ? $"{visible.Count:N0} / {_recent.Count:N0}" : _recent.Count == 0 ? "" : $"{_recent.Count:N0}";
         var indexing = searching && !_historyIndexUnavailable && _historyText.Count < _recent.Count;
         var progress = indexing ? UiText.Format("HistoryIndexProgress", _historyText.Count, _recent.Count) : "";
         HistoryIndexStatus.Visibility = searching && ((indexing && visible.Count > 0) || (_historyIndexUnavailable && _historyText.Count < _recent.Count))
@@ -201,12 +211,19 @@ public partial class MainWindow
     {
         if (HistoryItems is not null && HistoryIndexStatus is not null)
         {
+            var header = HistoryHeader.TranslatePoint(new Point(), HomeView).Y - HistoryHeaderOffset.Y;
+            if (header < 0)
+                HomeView.ScrollToVerticalOffset(HomeView.VerticalOffset + header);
             FilterHistory();
             UpdateHistoryIndex();
         }
     }
 
-    private void HistoryVisibility_Changed(object sender, DependencyPropertyChangedEventArgs e) => UpdateHistoryIndex();
+    private void HistoryVisibility_Changed(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        RequestHistoryLayout();
+        UpdateHistoryIndex();
+    }
 
     private void UpdateHistoryIndex()
     {
@@ -229,13 +246,17 @@ public partial class MainWindow
         try
         {
             await Task.Delay(300, request.Token);
-            while (_recent.FirstOrDefault(entry => !_historyText.ContainsKey(entry)) is { } item)
+            var refresh = Stopwatch.StartNew();
+            foreach (var item in _recent)
             {
+                request.Token.ThrowIfCancellationRequested();
+                if (!_historyMembership.Contains(item) || _historyText.ContainsKey(item))
+                    continue;
+
                 string text;
                 try
                 {
-                    var image = await Task.Run(() => HistoryStore.OpenImage(item.FilePath), request.Token);
-                    text = await OcrService.RecognizeTextAsync(image, request.Token);
+                    text = await _history.ReadHistoryTextAsync(item.FilePath, request.Token);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or NotSupportedException)
                 {
@@ -244,12 +265,17 @@ public partial class MainWindow
                 }
 
                 request.Token.ThrowIfCancellationRequested();
-                if (_recent.Contains(item, ReferenceEqualityComparer.Instance))
+                if (_historyMembership.Contains(item))
                 {
                     _historyText[item] = NormalizeHistorySearchText(text);
-                    FilterHistory();
+                    if (refresh.ElapsedMilliseconds >= 120)
+                    {
+                        FilterHistory();
+                        refresh.Restart();
+                    }
                 }
             }
+            FilterHistory();
         }
         catch (OperationCanceledException) when (request.IsCancellationRequested)
         {
@@ -266,7 +292,10 @@ public partial class MainWindow
         finally
         {
             if (_historyIndexRequest == request)
+            {
                 _historyIndexRequest = null;
+                UpdateHistoryIndex();
+            }
         }
     }
 

@@ -25,7 +25,7 @@ public enum EditorTool
 public sealed class EditorSurface : FrameworkElement
 {
     private static readonly Typeface LabelTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
-    private static readonly Brush RedactionBrush = new SolidColorBrush(Color.FromRgb(16, 19, 24));
+    private static readonly Brush RedactionBrush = (Brush)new SolidColorBrush(Color.FromRgb(16, 19, 24)).GetAsFrozen();
     private readonly List<Annotation> _marks = [];
     private readonly Stack<Edit> _undo = [];
     private readonly Stack<Edit> _redo = [];
@@ -51,7 +51,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal event Action? Changed;
     internal event Action? SelectionChanged;
-    internal Func<string?>? RequestText { get; set; }
+    internal Func<string?, string?>? RequestText { get; set; }
     internal EditorTool Tool
     {
         get => _tool;
@@ -278,25 +278,45 @@ public sealed class EditorSurface : FrameworkElement
         InvalidateVisual();
     }
 
-    internal BitmapSource Export()
+    internal Task<BitmapSource> ExportAsync()
     {
         CompleteStrokeAdjustment();
-        return Rasterize(redactionsOnly: false);
+        return ExportSnapshotAsync(redactionsOnly: false);
     }
 
-    internal BitmapSource ExportForOcr() => Rasterize(redactionsOnly: true);
+    internal Task<BitmapSource> ExportForOcrAsync() => ExportSnapshotAsync(redactionsOnly: true);
 
-    private BitmapSource Rasterize(bool redactionsOnly)
+    private Task<BitmapSource> ExportSnapshotAsync(bool redactionsOnly)
     {
-        var image = _image ?? throw new InvalidOperationException(UiText.Get("OpenFirst"));
-        if (_marks.Count == 0 || (redactionsOnly && !_marks.Any(mark => mark.Tool == EditorTool.Redact)))
-            return _crop is null ? image : CaptureService.Crop(image, _crop.ToPixels());
+        var image = _image ?? throw new UserFacingException("OpenFirst");
+        var crop = _crop;
+        var marks = _marks.Where(mark => !redactionsOnly || mark.Tool == EditorTool.Redact)
+            .Select(mark => mark.ToState()).ToArray();
+        if (!image.IsFrozen)
+            image = (BitmapSource)image.GetAsFrozen();
+        if (marks.Length == 0 && crop is null)
+            return Task.FromResult(image);
+
+        return Task.Run(() => Rasterize(image, crop, marks));
+    }
+
+    private static BitmapSource Rasterize(BitmapSource image, CropRegion? crop, MarkState[] marks)
+    {
+        if (marks.Length == 0)
+            return CaptureService.Crop(image, crop!.ToPixels());
 
         var visual = new DrawingVisual();
         using (var drawing = visual.RenderOpen())
-            DrawDocument(drawing, image, preview: false, redactionsOnly);
+        {
+            DrawBase(drawing, image, crop);
+            foreach (var mark in marks)
+                DrawMark(drawing, Annotation.FromState(mark));
+            drawing.Pop();
+            drawing.Pop();
+        }
 
-        var bitmap = new RenderTargetBitmap((int)Width, (int)Height, 96, 96, PixelFormats.Pbgra32);
+        var bitmap = new RenderTargetBitmap(crop?.Width ?? image.PixelWidth, crop?.Height ?? image.PixelHeight,
+            96, 96, PixelFormats.Pbgra32);
         bitmap.Render(visual);
         bitmap.Freeze();
         return bitmap;
@@ -305,7 +325,7 @@ public sealed class EditorSurface : FrameworkElement
     protected override void OnRender(DrawingContext drawing)
     {
         if (_image is not null)
-            DrawDocument(drawing, _image, true);
+            DrawPreview(drawing, _image);
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -318,7 +338,12 @@ public sealed class EditorSurface : FrameworkElement
         var start = ImagePoint(e.GetPosition(this));
         if (Tool == EditorTool.Select)
         {
-            if (!TryDragHandle(start))
+            if (e.ClickCount == 2 && FindAnnotation(start) is var index && index >= 0 && _marks[index].Tool == EditorTool.Text)
+            {
+                SelectAnnotation(index);
+                EditSelectedText();
+            }
+            else if (!TryDragHandle(start))
                 StartMovingAnnotation(start);
             e.Handled = true;
             return;
@@ -333,12 +358,15 @@ public sealed class EditorSurface : FrameworkElement
         switch (Tool)
         {
             case EditorTool.Text:
-                var text = RequestText?.Invoke();
+                var text = RequestText?.Invoke(null);
                 if (!string.IsNullOrWhiteSpace(text))
                     Add(mark with { Label = text.Trim() });
                 break;
             case EditorTool.Number:
-                var number = _marks.Count(entry => entry.Tool == EditorTool.Number) + 1;
+                var number = _marks.Where(entry => entry.Tool == EditorTool.Number)
+                    .Select(entry => int.TryParse(entry.Label, NumberStyles.None, CultureInfo.InvariantCulture, out var label)
+                        && label < int.MaxValue ? label : 0)
+                    .DefaultIfEmpty().Max() + 1;
                 Add(mark with { Label = number.ToString(CultureInfo.InvariantCulture) });
                 break;
             default:
@@ -355,6 +383,21 @@ public sealed class EditorSurface : FrameworkElement
                 break;
         }
         e.Handled = true;
+    }
+
+    internal bool EditSelectedText()
+    {
+        if (SelectedMark is not { Tool: EditorTool.Text } mark)
+            return false;
+
+        CompleteStrokeAdjustment();
+        var index = _selectedIndex;
+        var before = _marks[index];
+        var text = RequestText?.Invoke(mark.Label)?.Trim();
+        if (!string.IsNullOrEmpty(text) && text != before.Label
+            && index < _marks.Count && ReferenceEquals(_marks[index], before))
+            Commit(new Edit(index, before, before with { Label = text }));
+        return true;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -404,21 +447,21 @@ public sealed class EditorSurface : FrameworkElement
         InvalidateVisual();
     }
 
-    private void DrawDocument(DrawingContext drawing, BitmapSource image, bool preview, bool redactionsOnly = false)
+    private static void DrawBase(DrawingContext drawing, BitmapSource image, CropRegion? crop)
     {
-        var bounds = new Rect(0, 0, image.PixelWidth, image.PixelHeight);
-        drawing.PushClip(new RectangleGeometry(new Rect(0, 0, Width, Height)));
-        drawing.PushTransform(new TranslateTransform(-ViewX, -ViewY));
-        drawing.DrawImage(image, bounds);
+        drawing.PushClip(new RectangleGeometry(new Rect(0, 0, crop?.Width ?? image.PixelWidth, crop?.Height ?? image.PixelHeight)));
+        drawing.PushTransform(new TranslateTransform(-(crop?.X ?? 0), -(crop?.Y ?? 0)));
+        drawing.DrawImage(image, new Rect(0, 0, image.PixelWidth, image.PixelHeight));
+    }
+
+    private void DrawPreview(DrawingContext drawing, BitmapSource image)
+    {
+        DrawBase(drawing, image, _crop);
         for (var index = 0; index < _marks.Count; index++)
-        {
-            var mark = preview && EditingMark && index == _selectedIndex ? _draft! : _marks[index];
-            if (!redactionsOnly || mark.Tool == EditorTool.Redact)
-                DrawMark(drawing, mark);
-        }
-        if (preview && _draft is not null && !EditingMark)
+            DrawMark(drawing, EditingMark && index == _selectedIndex ? _draft! : _marks[index]);
+        if (_draft is not null && !EditingMark)
             DrawMark(drawing, _draft);
-        if (preview && SelectedMark is { } selected)
+        if (SelectedMark is { } selected)
         {
             var mark = EditingMark ? _draft! : selected;
             if (HasEditablePoints(mark.Tool))

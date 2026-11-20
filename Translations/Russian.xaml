@@ -15,7 +15,7 @@
     <sys:String x:Key="Ui.WindowDescription">Окно перед Framelet</sys:String>
     <sys:String x:Key="Ui.CaptureDelayed">С задержкой</sys:String>
     <sys:String x:Key="Ui.DelayedDescription">Выбор области через 3 секунды</sys:String>
-    <sys:String x:Key="Ui.Recent">Последние снимки</sys:String>
+    <sys:String x:Key="Ui.Recent">История снимков</sys:String>
     <sys:String x:Key="Ui.EmptyTitle">Снимков пока нет</sys:String>
     <sys:String x:Key="Ui.EmptyDescription">Сделайте снимок, и он появится здесь.</sys:String>
     <sys:String x:Key="Ui.OcrAction">Распознать текст</sys:String>
@@ -90,7 +90,7 @@
     <sys:String x:Key="Ui.Fit">Вписать</sys:String>
     <sys:String x:Key="Ui.TwoHeads">Два наконечника</sys:String>
     <sys:String x:Key="Ui.TwoHeadsTip">Добавить наконечник в начало стрелки</sys:String>
-    <sys:String x:Key="Ui.FooterRegion">Ctrl + Shift + 1 · в редактор</sys:String>
+    <sys:String x:Key="Ui.FooterRegion">{0} · в редактор</sys:String>
     <sys:String x:Key="Ui.Ready">Готов к захвату</sys:String>
     <sys:String x:Key="Ui.CloseSettings">Закрыть настройки</sys:String>
     <sys:String x:Key="Ui.Hotkeys">Глобальные горячие клавиши</sys:String>
@@ -105,19 +105,19 @@
     <sys:String x:Key="Ui.PrintUnavailable">Не удалось подключить Print Screen.</sys:String>
     <sys:String x:Key="Ui.FooterPrintRegion">PrtSc · в буфер</sys:String>
     <sys:String x:Key="Ui.KeepHistory">Сохранять снимки в локальной истории</sys:String>
-    <sys:String x:Key="Ui.HistoryLimit">До 50 снимков и до 10 шагов отмены для каждого.</sys:String>
+    <sys:String x:Key="Ui.HistoryArchiveHint">В истории доступны все сохранённые снимки Framelet. Очистка списка оставляет файлы в папке.</sys:String>
     <sys:String x:Key="Ui.HistorySourceNote">Для отмены правок исходный снимок хранится на устройстве.</sys:String>
     <sys:String x:Key="Ui.OpenFolder">Открыть папку</sys:String>
     <sys:String x:Key="Ui.ClearHistory">Очистить историю</sys:String>
     <sys:String x:Key="Ui.Delete">Удалить</sys:String>
     <sys:String x:Key="Ui.Cancel">Отмена</sys:String>
-    <sys:String x:Key="Ui.DeleteConfirm">Удалить все снимки?</sys:String>
+    <sys:String x:Key="Ui.DeleteConfirm">Очистить список и журналы правок? PNG останутся в папках.</sys:String>
     <sys:String x:Key="Ui.InterfaceLanguage">Язык интерфейса</sys:String>
     <sys:String x:Key="Ui.AnnotationText">Текст на снимке</sys:String>
     <sys:String x:Key="Ui.Add">Добавить</sys:String>
     <sys:String x:Key="Ui.PinnedTitle">Framelet · Закреплённый снимок</sys:String>
     <sys:String x:Key="Ui.ClosePin">Закрыть снимок</sys:String>
-    <sys:String x:Key="Ui.PickWindow">Выберите нужное окно и нажмите Ctrl + Shift + 3.</sys:String>
+    <sys:String x:Key="Ui.PickWindow">Выберите нужное окно и нажмите сочетание для захвата активного окна.</sys:String>
     <sys:String x:Key="Ui.WindowBoundsFailure">Не удалось определить границы окна.</sys:String>
     <sys:String x:Key="Ui.WindowOffscreen">Окно находится за пределами экрана.</sys:String>
     <sys:String x:Key="Ui.OcrWorking">Распознаём текст на устройстве…</sys:String>
@@ -244,4 +244,5 @@
     <sys:String x:Key="Ui.WorkspaceShortcutInvalid">Выберите Ctrl или Alt вместе с буквой, цифрой или F-клавишей. F12 зарезервирована Windows.</sys:String>
     <sys:String x:Key="Ui.WorkspaceShortcutInUse">Это сочетание недоступно. Выберите другое.</sys:String>
     <sys:String x:Key="Ui.WorkspaceShortcutSaved">Сочетание для трея сохранено</sys:String>
+    <sys:String x:Key="Ui.CaptureShortcutSaved">Сочетание для захвата сохранено</sys:String>
 </ResourceDictionary>

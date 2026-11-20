@@ -39,6 +39,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        OcrService.Shutdown();
         _requestListener?.Unregister(null);
         _showRequest?.Dispose();
         _instance?.Dispose();

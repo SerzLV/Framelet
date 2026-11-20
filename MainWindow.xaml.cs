@@ -37,11 +37,13 @@ public partial class MainWindow : Window
         _preferences = _history.LoadPreferences();
         _history.ConfigureStorage(_preferences);
         _foregroundTracker = new ForegroundWindowTracker(((App)Application.Current).InitialForeground);
-        _printScreen = new PrintScreenShortcut(Dispatcher, () => _ = CaptureAsync(CaptureMode.QuickClipboard));
+        _printScreen = new PrintScreenShortcut(Dispatcher, RequestQuickCapture);
         UiText.Apply(_preferences.Language);
         InitializeComponent();
+        HistoryItems.ItemsSource = _historyCards;
+        InitializeCaptureShortcuts();
         Language = XmlLanguage.GetLanguage(UiText.Culture.Name);
-        EditorImage.RequestText = () => AuxiliaryWindows.AskForText(this);
+        EditorImage.RequestText = text => AuxiliaryWindows.AskForText(this, text);
         EditorImage.Changed += EditorChanged;
         EditorImage.SelectionChanged += UpdateSelectionOptions;
         CropLayer.SelectionChanged += UpdateCropSelection;
@@ -177,8 +179,8 @@ public partial class MainWindow : Window
         var path = _entryPath ?? _history.CreateEntryPath();
         try
         {
-            var image = prepared is not null && preparedRevision == revision ? prepared : EditorImage.Export();
             var document = EditorImage.CaptureJournal();
+            var image = prepared is not null && preparedRevision == revision ? prepared : await EditorImage.ExportAsync();
             var item = await Task.Run(() => _history.Put(path, image, document));
             _entryPath = path;
             _savedRevision = revision;
@@ -199,7 +201,7 @@ public partial class MainWindow : Window
     {
         RefreshHistory(_recent.Where(old => old.FilePath != item.FilePath).Append(item)
             .OrderByDescending(entry => entry.CreatedUtc).ThenByDescending(entry => entry.FilePath, StringComparer.Ordinal)
-            .Take(HistoryStore.MaxItems).ToArray());
+            .ToArray());
     }
 
     private async void EditSaveTimer_Tick(object? sender, EventArgs e)
@@ -216,7 +218,7 @@ public partial class MainWindow : Window
         {
             EditorImage.CompleteStrokeAdjustment();
             var revision = _revision;
-            var image = EditorImage.Export();
+            var image = await EditorImage.ExportAsync();
             await CopyImageToClipboardAsync(image);
             Report(UiText.Get("ImageCopied"));
             await RememberEditorAsync(image, revision);
@@ -257,7 +259,7 @@ public partial class MainWindow : Window
 
             EditorImage.CompleteStrokeAdjustment();
             var revision = _revision;
-            var image = EditorImage.Export();
+            var image = await EditorImage.ExportAsync();
             await Task.Run(() => HistoryStore.WritePng(dialog.FileName, image));
             Report(UiText.Format("SavedFile", Path.GetFileName(dialog.FileName)));
             await RememberEditorAsync(image, revision);
@@ -268,12 +270,14 @@ public partial class MainWindow : Window
     {
         await RunOperation(async () =>
         {
-            var image = EditorImage.Export();
+            EditorImage.CompleteStrokeAdjustment();
+            var revision = _revision;
+            var image = await EditorImage.ExportAsync();
             var pin = AuxiliaryWindows.ShowPin(this, image);
             _pins.Add(pin);
             pin.Closed += (_, _) => _pins.Remove(pin);
             Report(UiText.Get("Pinned"));
-            await RememberEditorAsync(image, _revision);
+            await RememberEditorAsync(image, revision);
         });
     }
 
@@ -528,6 +532,11 @@ public partial class MainWindow : Window
 
         if (SettingsLayer.Visibility == Visibility.Visible)
         {
+            if (_recordingCaptureShortcut is not null)
+            {
+                RecordCaptureShortcut(e);
+                return;
+            }
             if (_recordingWorkspaceShortcut)
             {
                 RecordWorkspaceShortcut(e);
@@ -598,6 +607,12 @@ public partial class MainWindow : Window
         if (e.Key == Key.Delete)
         {
             e.Handled = EditorImage.DeleteSelection();
+            return;
+        }
+
+        if (e.Key == Key.F2 && !e.IsRepeat && EditorImage.EditSelectedText())
+        {
+            e.Handled = true;
             return;
         }
 
@@ -675,6 +690,7 @@ public partial class MainWindow : Window
     {
         if (_recordingWorkspaceShortcut)
             StopRecordingWorkspaceShortcut();
+        StopRecordingCaptureShortcut();
         SettingsLayer.Visibility = Visibility.Collapsed;
         ClearConfirmation.Visibility = Visibility.Collapsed;
         HomeView.IsEnabled = EditorView.IsEnabled = true;
@@ -716,7 +732,7 @@ public partial class MainWindow : Window
         UiText.Apply(language);
         Language = XmlLanguage.GetLanguage(UiText.Culture.Name);
         UpdateHotkeyLabels();
-        HistoryItems.ItemsSource = null;
+        _historyCards.Clear();
         RefreshHistory(_recent);
         RefreshOcrContactLabels();
         if (_tray?.ContextMenuStrip is TrayMenu menu)
@@ -761,7 +777,10 @@ public partial class MainWindow : Window
         await RunOperation(async () =>
         {
             await EnsureHistoryLoadedAsync();
-            await Task.Run(_history.Clear);
+            var cutoff = DateTime.UtcNow;
+            if (!TrySavePreferences(_preferences with { HistoryClearedUtc = cutoff }))
+                return;
+            await Task.Run(() => _history.ForgetHistory(cutoff));
             _entryPath = null;
             _lastCapturePath = null;
             _lastCaptureImage = null;
@@ -846,7 +865,7 @@ public partial class MainWindow : Window
             {
                 UnauthorizedAccessException => UiText.Get("DirectoryDenied"),
                 IOException => UiText.Get("FileFailure"),
-                InvalidOperationException => ex.Message,
+                UserFacingException known => UiText.Get(known.ResourceKey),
                 ExternalException => UiText.Get("WindowsOperationFailure"),
                 _ => UiText.Get("OperationFailure")
             }, true);
@@ -855,6 +874,7 @@ public partial class MainWindow : Window
         {
             _busy = false;
             CompleteCaptureRequest();
+            RunPendingQuickCapture();
         }
     }
 }

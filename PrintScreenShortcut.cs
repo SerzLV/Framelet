@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Threading;
 
 namespace Framelet;
@@ -10,11 +12,11 @@ internal sealed class PrintScreenShortcut(Dispatcher dispatcher, Action capture)
     private const int KeyUp = 0x0101;
     private const int SysKeyDown = 0x0104;
     private const int SysKeyUp = 0x0105;
-    private KeyboardCallback? _callback;
-    private nint _hook;
+    private Thread? _thread;
+    private Dispatcher? _hookDispatcher;
     private bool _suppressUntilRelease;
 
-    internal bool IsActive => _hook != 0;
+    internal bool IsActive => _hookDispatcher is not null;
 
     internal void Configure(bool enabled)
     {
@@ -24,11 +26,41 @@ internal sealed class PrintScreenShortcut(Dispatcher dispatcher, Action capture)
             return;
         }
 
-        if (!IsActive)
+        if (IsActive)
+            return;
+
+        var ready = new TaskCompletionSource<Dispatcher?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() => RunHook(ready)) { IsBackground = true, Name = "Framelet Print Screen" };
+        thread.Start();
+        _hookDispatcher = ready.Task.GetAwaiter().GetResult();
+        if (_hookDispatcher is not null)
+            _thread = thread;
+    }
+
+    private void RunHook(TaskCompletionSource<Dispatcher?> ready)
+    {
+        KeyboardCallback callback = OnKeyboard;
+        nint hook = 0;
+        try
         {
             // Windows can reserve Print Screen for Snipping Tool outside our own foreground window.
-            _callback = OnKeyboard;
-            _hook = SetWindowsHookEx(13, _callback, GetModuleHandle(null), 0);
+            var loop = Dispatcher.CurrentDispatcher;
+            hook = SetWindowsHookEx(13, callback, GetModuleHandle(null), 0);
+            ready.TrySetResult(hook == 0 ? null : loop);
+            if (hook != 0)
+                Dispatcher.Run();
+        }
+        catch (Exception error)
+        {
+            Trace.WriteLine(error);
+        }
+        finally
+        {
+            ready.TrySetResult(null);
+            if (hook != 0)
+                UnhookWindowsHookEx(hook);
+            _suppressUntilRelease = false;
+            GC.KeepAlive(callback);
         }
     }
 
@@ -68,12 +100,10 @@ internal sealed class PrintScreenShortcut(Dispatcher dispatcher, Action capture)
 
     public void Dispose()
     {
-        if (IsActive)
-            UnhookWindowsHookEx(_hook);
-
-        _hook = 0;
-        _callback = null;
-        _suppressUntilRelease = false;
+        _hookDispatcher?.BeginInvokeShutdown(DispatcherPriority.Send);
+        _thread?.Join();
+        _hookDispatcher = null;
+        _thread = null;
     }
 
     private delegate nint KeyboardCallback(int code, nint message, nint data);

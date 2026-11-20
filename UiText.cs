@@ -3,6 +3,11 @@ using System.Windows;
 
 namespace Framelet;
 
+internal sealed class UserFacingException(string resourceKey) : Exception(resourceKey)
+{
+    internal string ResourceKey { get; } = resourceKey;
+}
+
 internal static class UiText
 {
     private static ResourceDictionary? _strings;
@@ -10,9 +15,12 @@ internal static class UiText
     internal static string Language { get; private set; } = "ru";
     internal static CultureInfo Culture { get; private set; } = CultureInfo.GetCultureInfo("ru-RU");
 
+    internal static string ResolveLanguage(string? language) => language is "en" or "ru" ? language
+        : CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? "ru" : "en";
+
     internal static void Apply(string? language)
     {
-        var english = language == "en";
+        var english = ResolveLanguage(language) == "en";
         var dictionary = new ResourceDictionary
         {
             Source = new Uri(english ? "Translations/English.xaml" : "Translations/Russian.xaml", UriKind.Relative)

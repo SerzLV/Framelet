@@ -58,7 +58,7 @@ public partial class MainWindow
 
         try
         {
-            var image = EditorImage.ExportForOcr();
+            var image = await EditorImage.ExportForOcrAsync();
             var result = await OcrService.RecognizeAsync(image, _ocrLanguage, request.Token);
             if (_ocrRequest != request)
                 return;
