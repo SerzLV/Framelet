@@ -207,6 +207,16 @@
     <sys:String x:Key="Ui.ScrollAutoRunning">Scrolling and stitching frames…</sys:String>
     <sys:String x:Key="Ui.ScrollAutoPaused">Auto-scroll stopped</sys:String>
     <sys:String x:Key="Ui.ScrollAutoEnd">The page stopped moving. Your screenshot is ready.</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoEndWithTail">Scrolling ended. If content is visible below the selection, click Extend bottom.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAdd">Extend bottom</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAdjust">Adjust bottom</sys:String>
+    <sys:String x:Key="Ui.ScrollTailPrompt">Click where the screenshot should end · Esc to cancel</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAdded">Bottom added. Your screenshot is ready.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAutoAdded">Page bottom added automatically. You can adjust the edge.</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoStalled">There is more content below. Scroll down a little and add a frame.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailChanged">The last frame changed. Return to the position shown in the preview and try again.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailUnavailable">There is no visible window area below the selection.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailLimit">The screenshot would exceed the size limit. Set the bottom edge higher.</sys:String>
     <sys:String x:Key="Ui.ScrollAutoWindow">Auto-scroll stopped. Return to the selected window or add a frame manually.</sys:String>
     <sys:String x:Key="Ui.OcrRedactContacts">Hide contact details</sys:String>
     <sys:String x:Key="Ui.OcrRedactTip">Covers detected phone numbers, emails, and addresses in the screenshot.</sys:String>

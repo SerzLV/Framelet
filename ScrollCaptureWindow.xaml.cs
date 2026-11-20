@@ -13,12 +13,19 @@ internal partial class ScrollCaptureWindow : Window
     private readonly Drawing.Rectangle _selection;
     private readonly ScrollStitcher _stitcher;
     private readonly ScrollWheelTarget _scrollTarget;
+    private readonly FrameworkElement[] _tooltipOwners;
     private readonly TaskCompletionSource<BitmapSource?> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private bool _autoScrolling;
     private bool _stopAutoScroll;
     private bool _atLimit;
+    private bool _canAddTail;
+    private bool _tailAdded;
+    private int? _documentBottom;
     private bool _capturing;
     private bool _closed;
+    private bool _movingPanel;
+    private bool _positionedByUser;
+    private int _panelMoveCount;
 
     internal ScrollCaptureWindow(ScreenSnapshot selection, ScrollStitcher stitcher, ScrollWheelTarget scrollTarget, string? shortcut)
     {
@@ -26,6 +33,7 @@ internal partial class ScrollCaptureWindow : Window
         _stitcher = stitcher;
         _scrollTarget = scrollTarget;
         InitializeComponent();
+        _tooltipOwners = [CancelButton, FramePreview, AutoScrollButton];
         LastFrame.Source = selection.Image;
         CaptureProgress.Text = UiText.Format("ScrollFrameCount", _stitcher.FrameCount, _stitcher.Height);
         CaptureInstructions.Text = shortcut is null ? UiText.Get("ScrollAddInstruction") : UiText.Format("ScrollAddWithShortcut", shortcut);
@@ -61,7 +69,7 @@ internal partial class ScrollCaptureWindow : Window
             return;
         }
 
-        if (!_capturing && !_closed && !_atLimit)
+        if (!_capturing && !_closed && !_atLimit && !_tailAdded)
             await CaptureFrameAsync(automatic: false);
     }
 
@@ -72,11 +80,13 @@ internal partial class ScrollCaptureWindow : Window
             _stopAutoScroll = true;
             return;
         }
-        if (_capturing || _closed || _atLimit)
+        if (_capturing || _closed || _atLimit || _tailAdded)
             return;
 
         _autoScrolling = true;
         _stopAutoScroll = false;
+        _canAddTail = false;
+        _documentBottom = null;
         UpdateActions();
         CaptureStatus.Text = UiText.Get("ScrollAutoRunning");
         try
@@ -90,15 +100,17 @@ internal partial class ScrollCaptureWindow : Window
             // Allow focus to move from the capture controls to the selected window.
             await Task.Delay(120);
             const int endConfirmationAttempts = 3;
+            const int maximumUnchangedAttempts = 5;
             var unchangedAttempts = 0;
             while (!_closed && !_stopAutoScroll)
             {
-                await WaitForPanelClickAsync();
+                await WaitForPanelInteractionAsync();
                 if (_closed || _stopAutoScroll)
                     break;
-                if (!await _scrollTarget.TryScrollDownAsync())
+                if (!await ScrollNextAsync(unchangedAttempts))
                 {
-                    CaptureStatus.Text = UiText.Get("ScrollAutoWindow");
+                    if (!_closed)
+                        CaptureStatus.Text = UiText.Get(_stopAutoScroll ? "ScrollAutoPaused" : "ScrollAutoWindow");
                     return;
                 }
                 var result = await CaptureFrameAsync(automatic: true);
@@ -108,10 +120,11 @@ internal partial class ScrollCaptureWindow : Window
                 }
                 else if (result == ScrollFrameResult.Unchanged && !_closed && !_stopAutoScroll)
                 {
-                    // A single wheel event may be ignored while a page is still rendering.
-                    if (++unchangedAttempts == endConfirmationAttempts)
+                    // Try other points if a nested control or a delayed render consumed the wheel event.
+                    unchangedAttempts++;
+                    if ((unchangedAttempts == endConfirmationAttempts || unchangedAttempts == maximumUnchangedAttempts)
+                        && await FinishAutoScrollAsync(allowRetry: unchangedAttempts < maximumUnchangedAttempts))
                     {
-                        CaptureStatus.Text = UiText.Get("ScrollAutoEnd");
                         return;
                     }
                 }
@@ -136,7 +149,183 @@ internal partial class ScrollCaptureWindow : Window
         {
             _autoScrolling = false;
             if (!_closed)
+            {
                 UpdateActions();
+                if (_canAddTail)
+                {
+                    UpdateLayout();
+                    MoveOutsideSelection();
+                }
+            }
+        }
+    }
+
+    private async Task<bool> ScrollNextAsync(int pointOffset)
+    {
+        if (await _scrollTarget.TryScrollDownAsync(pointOffset))
+            return true;
+        if (_closed || _stopAutoScroll || !_scrollTarget.IsForeground || !PanelIntersects(_selection))
+            return false;
+
+        return await WithoutPanelAsync(
+            () => _stopAutoScroll ? Task.FromResult(false) : _scrollTarget.TryScrollDownAsync(pointOffset),
+            canceled: false);
+    }
+
+    private async Task<bool> FinishAutoScrollAsync(bool allowRetry)
+    {
+        await WaitForPanelInteractionAsync();
+        var end = PanelIntersects(_selection)
+            ? await WithoutPanelAsync(() => _scrollTarget.GetDocumentEndAsync(_selection), canceled: null)
+            : await _scrollTarget.GetDocumentEndAsync(_selection);
+        await WaitForPanelInteractionAsync();
+        if (_closed)
+            return true;
+        if (_stopAutoScroll)
+        {
+            CaptureStatus.Text = UiText.Get("ScrollAutoPaused");
+            return true;
+        }
+        if (!_scrollTarget.IsForeground)
+        {
+            CaptureStatus.Text = UiText.Get("ScrollAutoWindow");
+            return true;
+        }
+        if (end is { AtEnd: false })
+        {
+            if (allowRetry)
+                return false;
+            CaptureStatus.Text = UiText.Get("ScrollAutoStalled");
+            return true;
+        }
+
+        _documentBottom = end?.Bottom;
+        var bottom = _documentBottom ?? _scrollTarget.GetVisibleBottom(_selection);
+        _canAddTail = bottom - _selection.Bottom >= 3;
+        if (end.HasValue && _canAddTail)
+        {
+            var bounds = Drawing.Rectangle.FromLTRB(_selection.Left, _selection.Top, _selection.Right, bottom);
+            var frame = await CaptureUnobstructedAsync(bounds);
+            if (_closed)
+                return true;
+            if (frame is not null && !_stopAutoScroll && _scrollTarget.IsForeground)
+            {
+                var result = await Task.Run(() => _stitcher.TrySetTail(frame));
+                if (_closed)
+                    return true;
+                if (result == ScrollFrameResult.Added)
+                {
+                    SetTailAdded("ScrollTailAutoAdded");
+                    return true;
+                }
+            }
+        }
+
+        CaptureStatus.Text = UiText.Get(_stopAutoScroll ? "ScrollAutoPaused" : _canAddTail ? "ScrollAutoEndWithTail" : "ScrollAutoEnd");
+        return true;
+    }
+
+    private async void AddTail_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_canAddTail || _autoScrolling || _capturing || _closed)
+            return;
+
+        _capturing = true;
+        UpdateActions();
+        try
+        {
+            if (!_scrollTarget.TryActivate())
+            {
+                CaptureStatus.Text = UiText.Get("ScrollAutoWindow");
+                return;
+            }
+
+            Hide();
+            await Task.Delay(90);
+            if (_closed)
+                return;
+            if (!_scrollTarget.IsForeground)
+            {
+                CaptureStatus.Text = UiText.Get("ScrollAutoWindow");
+                return;
+            }
+
+            var bottom = Math.Min(_documentBottom ?? int.MaxValue, _scrollTarget.GetVisibleBottom(_selection));
+            var height = bottom - _selection.Bottom;
+            if (height < 3)
+            {
+                _canAddTail = false;
+                CaptureStatus.Text = UiText.Get("ScrollTailUnavailable");
+                return;
+            }
+
+            var screen = Forms.Screen.FromRectangle(_selection).Bounds;
+            Native.DwmFlush();
+            var image = await Task.Run(() => CaptureService.Capture(screen));
+            if (_closed)
+                return;
+
+            var extension = new Int32Rect(_selection.X - screen.X, _selection.Bottom - screen.Y, _selection.Width, height);
+            var selection = await SelectTailAsync(new ScreenSnapshot(screen, image), extension);
+            if (_closed || selection is not { } strip)
+                return;
+
+            var region = new Int32Rect(strip.X, _selection.Y - screen.Y, strip.Width, _selection.Height + strip.Height);
+            var result = await Task.Run(() => _stitcher.TrySetTail(CaptureService.Crop(image, region)));
+            if (_closed)
+                return;
+            if (result == ScrollFrameResult.Added)
+            {
+                SetTailAdded("ScrollTailAdded");
+                return;
+            }
+            CaptureStatus.Text = UiText.Get(result == ScrollFrameResult.Limit ? "ScrollTailLimit" : "ScrollTailChanged");
+        }
+        catch (Exception ex)
+        {
+            _result.TrySetException(ex);
+        }
+        finally
+        {
+            _capturing = false;
+            if (!_closed)
+            {
+                UpdateActions();
+                if (!IsVisible)
+                    Show();
+                UpdateLayout();
+                MoveOutsideSelection();
+            }
+        }
+    }
+
+    private void SetTailAdded(string status)
+    {
+        _tailAdded = true;
+        CaptureProgress.Text = UiText.Format("ScrollFrameCount", _stitcher.FrameCount, _stitcher.Height);
+        CaptureStatus.Text = UiText.Get(status);
+    }
+
+    private static async Task<Int32Rect?> SelectTailAsync(ScreenSnapshot snapshot, Int32Rect extension)
+    {
+        var pending = new TaskCompletionSource<Int32Rect?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var overlay = new SelectionWindow(snapshot, true, "ScrollTailPrompt",
+            (_, region) => pending.TrySetResult(region), () => pending.TrySetResult(null), extension);
+        var closed = false;
+        overlay.Closed += (_, _) =>
+        {
+            closed = true;
+            pending.TrySetResult(null);
+        };
+        try
+        {
+            overlay.Show();
+            return await pending.Task;
+        }
+        finally
+        {
+            if (!closed)
+                overlay.Close();
         }
     }
 
@@ -195,7 +384,7 @@ internal partial class ScrollCaptureWindow : Window
     {
         await Task.Delay(settleMilliseconds);
         if (automatic)
-            await WaitForPanelClickAsync();
+            await WaitForPanelInteractionAsync();
         if (_closed)
             return null;
 
@@ -207,44 +396,116 @@ internal partial class ScrollCaptureWindow : Window
             return null;
         }
 
-        var hidePanel = !Native.GetWindowRect(handle, out var panel) ||
-            _selection.IntersectsWith(Drawing.Rectangle.FromLTRB(panel.Left, panel.Top, panel.Right, panel.Bottom));
-        BitmapSource frame;
+        var frame = await CaptureUnobstructedAsync(_selection);
+        return frame is null ? null : (frame, await Task.Run(() => _stitcher.TryAppend(frame)));
+    }
+
+    private async Task<BitmapSource?> CaptureUnobstructedAsync(Drawing.Rectangle bounds)
+    {
+        while (!_closed)
+        {
+            await WaitForPanelInteractionAsync();
+            if (_closed)
+                break;
+
+            var moveCount = _panelMoveCount;
+            var frame = PanelIntersects(bounds)
+                ? await WithoutPanelAsync(CaptureAsync, canceled: null)
+                : await CaptureAsync();
+            if (moveCount == _panelMoveCount)
+                return frame;
+        }
+        return null;
+
+        async Task<BitmapSource?> CaptureAsync()
+        {
+            Native.DwmFlush();
+            return await Task.Run(() => CaptureService.Capture(bounds));
+        }
+    }
+
+    private bool PanelIntersects(Drawing.Rectangle bounds)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        return !Native.GetWindowRect(handle, out var panel) ||
+            bounds.IntersectsWith(Drawing.Rectangle.FromLTRB(panel.Left, panel.Top, panel.Right, panel.Bottom));
+    }
+
+    private async Task<T> WithoutPanelAsync<T>(Func<Task<T>> action, T canceled)
+    {
+        if (_closed)
+            return canceled;
+        Hide();
         try
         {
-            if (hidePanel)
-            {
-                Hide();
-                await Task.Delay(50);
-                if (_closed)
-                    return null;
-            }
-
-            Native.DwmFlush();
-            frame = await Task.Run(() => CaptureService.Capture(_selection));
+            await Task.Delay(50);
+            return _closed ? canceled : await action();
         }
         finally
         {
-            if (hidePanel && !_closed)
+            if (!_closed)
                 Show();
         }
-
-        return (frame, await Task.Run(() => _stitcher.TryAppend(frame)));
     }
 
-    private async Task WaitForPanelClickAsync()
+    private async Task WaitForPanelInteractionAsync()
     {
-        while (!_closed && !_stopAutoScroll && IsActive && Mouse.LeftButton == MouseButtonState.Pressed)
+        while (!_closed && (_movingPanel || (!_stopAutoScroll && IsActive && Mouse.LeftButton == MouseButtonState.Pressed)))
             await Task.Delay(40);
+    }
+
+    private void DragHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed)
+            return;
+
+        e.Handled = true;
+        var handle = new WindowInteropHelper(this).Handle;
+        var haveStart = Native.GetWindowRect(handle, out var start);
+        _movingPanel = true;
+        _panelMoveCount++;
+        UpdateToolTips();
+        try
+        {
+            DragMove();
+        }
+        finally
+        {
+            _movingPanel = false;
+            if (!_closed)
+            {
+                if (haveStart && Native.GetWindowRect(handle, out var end)
+                    && (start.Left != end.Left || start.Top != end.Top))
+                    _positionedByUser = true;
+                if (_autoScrolling && !_stopAutoScroll && IsActive)
+                    _scrollTarget.TryActivate();
+                UpdateToolTips();
+            }
+        }
+    }
+
+    private void UpdateToolTips()
+    {
+        var enabled = !_capturing && !_autoScrolling && !_movingPanel;
+        foreach (var owner in _tooltipOwners)
+        {
+            ToolTipService.SetIsEnabled(owner, enabled);
+            if (!enabled && owner.ToolTip is ToolTip { IsOpen: true } tooltip)
+                tooltip.IsOpen = false;
+        }
     }
 
     private void UpdateActions()
     {
-        AddFrame.IsEnabled = !_capturing && !_autoScrolling && !_atLimit;
+        AddFrame.IsEnabled = !_capturing && !_autoScrolling && !_atLimit && !_tailAdded;
         FinishButton.IsEnabled = !_capturing && !_autoScrolling;
-        AutoScrollButton.IsEnabled = _autoScrolling || (!_capturing && !_atLimit);
+        AutoScrollButton.IsEnabled = _autoScrolling || (!_capturing && !_atLimit && !_tailAdded);
+        CaptureInstructions.Visibility = _canAddTail ? Visibility.Collapsed : Visibility.Visible;
+        TailButton.Visibility = _canAddTail ? Visibility.Visible : Visibility.Collapsed;
+        TailButton.IsEnabled = !_capturing && !_autoScrolling && !_atLimit;
+        TailButton.SetResourceReference(ContentControl.ContentProperty, UiText.Key(_tailAdded ? "ScrollTailAdjust" : "ScrollTailAdd"));
         AutoScrollLabel.SetResourceReference(TextBlock.TextProperty, UiText.Key(_autoScrolling ? "ScrollAutoStop" : "ScrollAuto"));
-        AutoScrollButton.SetResourceReference(ToolTipProperty, UiText.Key(_autoScrolling ? "ScrollAutoStop" : "ScrollAutoTip"));
+        UpdateToolTips();
     }
 
     private async void Finish_Click(object sender, RoutedEventArgs e)
@@ -277,6 +538,9 @@ internal partial class ScrollCaptureWindow : Window
 
     private void MoveOutsideSelection()
     {
+        if (_positionedByUser)
+            return;
+
         var handle = new WindowInteropHelper(this).Handle;
         var area = Forms.Screen.FromRectangle(_selection).WorkingArea;
         if (!Native.GetWindowRect(handle, out var size))

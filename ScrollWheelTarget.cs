@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Automation;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 
@@ -28,7 +30,77 @@ internal sealed class ScrollWheelTarget
     internal bool TryActivate() => IsForeground || (_window != IntPtr.Zero && Native.IsWindowVisible(_window)
         && !Native.IsIconic(_window) && Native.SetForegroundWindow(_window));
 
-    internal async Task<bool> TryScrollDownAsync()
+    internal int GetVisibleBottom(Drawing.Rectangle selection)
+        => GetVisibleBounds(selection) is { } visible && visible.Contains(selection) ? visible.Bottom : selection.Bottom;
+
+    private Drawing.Rectangle? GetVisibleBounds(Drawing.Rectangle selection)
+    {
+        if (_window == IntPtr.Zero || !Native.IsWindowVisible(_window) || Native.IsIconic(_window))
+            return null;
+
+        if (Native.DwmGetWindowAttribute(_window, 9, out var rect, Marshal.SizeOf<Native.WindowRect>()) != 0
+            && !Native.GetWindowRect(_window, out rect))
+            return null;
+
+        var visible = Drawing.Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        visible.Intersect(Forms.Screen.FromRectangle(selection).Bounds);
+        return visible;
+    }
+
+    internal async Task<(int Bottom, bool AtEnd)?> GetDocumentEndAsync(Drawing.Rectangle selection)
+    {
+        if (!IsForeground)
+            return null;
+
+        try
+        {
+            return await Task.Run(() => ReadDocumentEnd(selection)).WaitAsync(TimeSpan.FromMilliseconds(900));
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+    }
+
+    private (int Bottom, bool AtEnd)? ReadDocumentEnd(Drawing.Rectangle selection)
+    {
+        try
+        {
+            if (GetVisibleBounds(selection) is not { } window || !window.Contains(selection))
+                return null;
+
+            var point = _points.FirstOrDefault(point => RootAt(point) == _window);
+            if (point.IsEmpty)
+                return null;
+
+            var element = AutomationElement.FromPoint(new Point(point.X, point.Y));
+            (int Bottom, bool AtEnd)? document = null;
+            for (var level = 0; level < 36 && element is not null; level++)
+            {
+                var current = element.Current;
+                if (current.ControlType == ControlType.Document && !current.IsOffscreen
+                    && element.TryGetCurrentPattern(ScrollPattern.Pattern, out var value) && value is ScrollPattern scroll)
+                {
+                    var state = scroll.Current;
+                    var viewport = current.BoundingRectangle;
+                    var selected = new Rect(selection.Left, selection.Top, selection.Width, selection.Height);
+                    if (state.VerticallyScrollable && !viewport.IsEmpty && viewport.Contains(selected))
+                        document = (Math.Min(window.Bottom, (int)Math.Floor(viewport.Bottom)), state.VerticalScrollPercent >= 99.9);
+                }
+
+                if (current.NativeWindowHandle != 0 && new IntPtr(current.NativeWindowHandle) == _window)
+                    return document;
+                element = TreeWalker.RawViewWalker.GetParent(element);
+            }
+        }
+        catch (Exception error) when (error is ElementNotAvailableException or InvalidOperationException or COMException)
+        {
+            // An accessibility provider can disappear between reading an element and its parent.
+        }
+        return null;
+    }
+
+    internal async Task<bool> TryScrollDownAsync(int pointOffset)
     {
         const int shift = 0x10, control = 0x11, alt = 0x12;
         const int leftButton = 0x01, rightButton = 0x02, middleButton = 0x04;
@@ -36,9 +108,12 @@ internal sealed class ScrollWheelTarget
             || IsPressed(leftButton) || IsPressed(rightButton) || IsPressed(middleButton))
             return false;
 
-        foreach (var point in _points)
+        for (var i = 0; i < _points.Length; i++)
+        {
+            var point = _points[(pointOffset + i) % _points.Length];
             if (RootAt(point) == _window)
                 return await SendWheelAsync(point);
+        }
 
         return false;
     }

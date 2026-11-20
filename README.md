@@ -63,8 +63,11 @@ The interface is available in English and Russian. Switch languages in Settings.
 
 1. Open the page and press `Ctrl + Shift + 4`.
 2. Select the part of the page that scrolls, leaving out fixed bars and the scrollbar. Framelet captures the first frame immediately.
-3. Click **Auto-scroll**. Click **Stop** once you have captured enough of the page. To capture manually, scroll down a little at a time and click **Add frame**.
-4. Click **Open screenshot** to inspect the stitched image and add annotations.
+3. Click **Auto-scroll** and let the page reach the bottom, or click **Stop** when you have enough. Drag the panel by its title to move it. Scrolling resumes when you release it.
+4. At the bottom of a page in Edge, Framelet can include visible content below your selection automatically. Use **Adjust bottom** to trim it, or **Extend bottom** if Framelet asks you to choose the edge.
+5. Click **Open screenshot** to inspect the stitched image and add annotations.
+
+To capture manually, scroll down a little at a time and click **Add frame**.
 
 ## Screenshot storage
 

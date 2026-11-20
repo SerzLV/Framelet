@@ -207,6 +207,16 @@
     <sys:String x:Key="Ui.ScrollAutoRunning">Прокручиваем и склеиваем кадры…</sys:String>
     <sys:String x:Key="Ui.ScrollAutoPaused">Автопрокрутка остановлена</sys:String>
     <sys:String x:Key="Ui.ScrollAutoEnd">Страница больше не прокручивается. Снимок готов.</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoEndWithTail">Прокрутка закончилась. Если ниже рамки есть текст, нажмите «Добавить низ».</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAdd">Добавить низ</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAdjust">Изменить низ</sys:String>
+    <sys:String x:Key="Ui.ScrollTailPrompt">Кликните там, где должен закончиться снимок · Esc — отмена</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAdded">Нижняя часть добавлена. Можно открыть снимок.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailAutoAdded">Низ страницы добавлен автоматически. Границу можно поправить.</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoStalled">До конца страницы ещё есть содержимое. Прокрутите немного и добавьте кадр.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailChanged">Последний кадр изменился. Верните страницу к положению на миниатюре и попробуйте снова.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailUnavailable">Под рамкой больше нет видимой области окна.</sys:String>
+    <sys:String x:Key="Ui.ScrollTailLimit">Снимок достигнет предела размера. Выберите границу выше.</sys:String>
     <sys:String x:Key="Ui.ScrollAutoWindow">Автопрокрутка остановлена. Вернитесь к выбранному окну или добавьте кадр вручную.</sys:String>
     <sys:String x:Key="Ui.OcrRedactContacts">Скрыть контакты</sys:String>
     <sys:String x:Key="Ui.OcrRedactTip">Закрывает найденные телефоны, email и адреса на снимке.</sys:String>

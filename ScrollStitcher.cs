@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -21,6 +22,7 @@ internal sealed class ScrollStitcher
     private readonly List<byte[]> _parts = [];
     private ulong[][] _previousRows;
     private byte[]? _frameBuffer;
+    private byte[]? _tail;
 
     internal ScrollStitcher(BitmapSource first)
     {
@@ -35,17 +37,17 @@ internal sealed class ScrollStitcher
     }
 
     internal int Height { get; private set; }
-    internal int FrameCount => _parts.Count;
+    internal int FrameCount => _parts.Count + (_tail is null ? 0 : 1);
 
     internal ScrollFrameResult TryAppend(BitmapSource frame)
     {
-        if (frame.PixelWidth != _width || frame.PixelHeight != _frameHeight)
+        if (_tail is not null || frame.PixelWidth != _width || frame.PixelHeight != _frameHeight)
             return ScrollFrameResult.NoOverlap;
 
         var pixels = _frameBuffer ??= AllocateFrame();
         CopyPixels(frame, pixels);
         var rows = ReadRows(pixels);
-        if (rows.Zip(_previousRows).All(pair => pair.First.AsSpan().SequenceEqual(pair.Second)))
+        if (MatchesPrevious(rows))
             return ScrollFrameResult.Unchanged;
 
         var offset = FindOffset(_previousRows, rows);
@@ -53,11 +55,34 @@ internal sealed class ScrollStitcher
             return ScrollFrameResult.NoOverlap;
 
         var height = Height + offset;
-        if (height > MaximumHeight || (long)height * _width > MaximumPixels)
+        if (ExceedsSizeLimit(height))
             return ScrollFrameResult.Limit;
 
         _parts.Add(pixels.AsSpan((_frameHeight - offset) * _stride).ToArray());
         _previousRows = rows;
+        Height = height;
+        return ScrollFrameResult.Added;
+    }
+
+    internal ScrollFrameResult TrySetTail(BitmapSource extendedFrame)
+    {
+        var extraHeight = extendedFrame.PixelHeight - _frameHeight;
+        if (extendedFrame.PixelWidth != _width || extraHeight <= 0)
+            return ScrollFrameResult.NoOverlap;
+
+        var height = Height - (_tail?.Length ?? 0) / _stride + extraHeight;
+        if (ExceedsSizeLimit(height))
+            return ScrollFrameResult.Limit;
+
+        var image = AsBgr32(extendedFrame);
+        var pixels = _frameBuffer ??= AllocateFrame();
+        image.CopyPixels(new Int32Rect(0, 0, _width, _frameHeight), pixels, _stride, 0);
+        if (!MatchesPrevious(ReadRows(pixels)))
+            return ScrollFrameResult.NoOverlap;
+
+        var tail = GC.AllocateUninitializedArray<byte>(checked(extraHeight * _stride));
+        image.CopyPixels(new Int32Rect(0, _frameHeight, _width, extraHeight), tail, _stride, 0);
+        _tail = tail;
         Height = height;
         return ScrollFrameResult.Added;
     }
@@ -76,20 +101,26 @@ internal sealed class ScrollStitcher
         foreach (var part in _parts)
         {
             var height = part.Length / _stride;
-            image.WritePixels(new System.Windows.Int32Rect(0, 0, _width, height), part, _stride, 0, top);
+            image.WritePixels(new Int32Rect(0, 0, _width, height), part, _stride, 0, top);
             top += height;
         }
+        if (_tail is { } tail)
+            image.WritePixels(new Int32Rect(0, 0, _width, tail.Length / _stride), tail, _stride, 0, top);
         image.Freeze();
         return image;
     }
 
+    private bool ExceedsSizeLimit(int height) => height > MaximumHeight || (long)height * _width > MaximumPixels;
+
+    private bool MatchesPrevious(ulong[][] rows) =>
+        rows.Zip(_previousRows).All(pair => pair.First.AsSpan().SequenceEqual(pair.Second));
+
     private byte[] AllocateFrame() => GC.AllocateUninitializedArray<byte>(checked(_stride * _frameHeight));
 
-    private void CopyPixels(BitmapSource frame, byte[] pixels)
-    {
-        var image = frame.Format == PixelFormats.Bgr32 ? frame : new FormatConvertedBitmap(frame, PixelFormats.Bgr32, null, 0);
-        image.CopyPixels(pixels, _stride, 0);
-    }
+    private void CopyPixels(BitmapSource frame, byte[] pixels) => AsBgr32(frame).CopyPixels(pixels, _stride, 0);
+
+    private static BitmapSource AsBgr32(BitmapSource frame) =>
+        frame.Format == PixelFormats.Bgr32 ? frame : new FormatConvertedBitmap(frame, PixelFormats.Bgr32, null, 0);
 
     private ulong[][] ReadRows(byte[] pixels)
     {

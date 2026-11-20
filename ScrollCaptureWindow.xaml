@@ -8,18 +8,24 @@
     <Border Padding="14,12" CornerRadius="12" Background="{StaticResource Panel}" BorderBrush="{StaticResource Stroke}" BorderThickness="1">
         <StackPanel>
             <DockPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="27" Height="26" Padding="5"
-                        Click="Cancel_Click" ToolTip="{DynamicResource Ui.Cancel}" AutomationProperties.Name="{DynamicResource Ui.Cancel}">
+                <Button x:Name="CancelButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}" Width="27" Height="26" Padding="5"
+                        Click="Cancel_Click" AutomationProperties.Name="{DynamicResource Ui.Cancel}">
+                    <Button.ToolTip><ToolTip Content="{DynamicResource Ui.Cancel}"/></Button.ToolTip>
                     <Path Style="{StaticResource Icon}" Data="{StaticResource CloseIcon}"/>
                 </Button>
-                <Path DockPanel.Dock="Left" Style="{StaticResource Icon}" Data="{StaticResource ScrollIcon}" Width="16" Height="16"
-                      Stroke="{StaticResource Accent}" Margin="0,0,8,0"/>
-                <TextBlock Text="{DynamicResource Ui.CaptureScrolling}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
+                <DockPanel x:Name="DragHeader" Background="Transparent" Cursor="SizeAll" MouseLeftButtonDown="DragHeader_MouseLeftButtonDown">
+                    <Path DockPanel.Dock="Left" Style="{StaticResource Icon}" Data="{StaticResource ScrollIcon}" Width="16" Height="16"
+                          Stroke="{StaticResource Accent}" Margin="0,0,8,0"/>
+                    <Path DockPanel.Dock="Right" Width="10" Height="12" Margin="0,0,10,0" VerticalAlignment="Center"
+                          Stroke="{StaticResource Muted}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Data="M2,2 H8 M2,6 H8 M2,10 H8"/>
+                    <TextBlock Text="{DynamicResource Ui.CaptureScrolling}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
+                </DockPanel>
             </DockPanel>
             <DockPanel Margin="0,8,0,10">
-                <Border DockPanel.Dock="Left" Width="70" Height="49" Margin="0,0,10,0" Padding="3" CornerRadius="6"
-                        BorderThickness="1" BorderBrush="{StaticResource Stroke}" Background="{StaticResource Canvas}"
-                        ToolTip="{DynamicResource Ui.ScrollPreview}">
+                <Border x:Name="FramePreview" DockPanel.Dock="Left" Width="70" Height="49" Margin="0,0,10,0" Padding="3" CornerRadius="6"
+                        BorderThickness="1" BorderBrush="{StaticResource Stroke}" Background="{StaticResource Canvas}">
+                    <Border.ToolTip><ToolTip Content="{DynamicResource Ui.ScrollPreview}"/></Border.ToolTip>
                     <Image x:Name="LastFrame" RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Border>
                 <StackPanel VerticalAlignment="Center">
@@ -29,11 +35,14 @@
                 </StackPanel>
             </DockPanel>
             <TextBlock x:Name="CaptureInstructions" Style="{StaticResource MutedText}" TextWrapping="Wrap" LineHeight="19" Margin="0,0,0,12"/>
+            <Button x:Name="TailButton" Content="{DynamicResource Ui.ScrollTailAdd}" Click="AddTail_Click"
+                    HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,0,0,8"/>
             <WrapPanel HorizontalAlignment="Right">
                 <Button x:Name="FinishButton" Content="{DynamicResource Ui.ScrollFinish}" Click="Finish_Click" Margin="0,0,7,0"/>
                 <Button x:Name="AddFrame" Content="{DynamicResource Ui.ScrollAddFrame}" Click="AddFrame_Click" Margin="0,0,7,0"/>
                 <Button x:Name="AutoScrollButton" Style="{StaticResource PrimaryButton}" Click="AutoScroll_Click" MinWidth="116"
-                        ToolTip="{DynamicResource Ui.ScrollAutoTip}" AutomationProperties.Name="{Binding Text, ElementName=AutoScrollLabel}">
+                        AutomationProperties.Name="{Binding Text, ElementName=AutoScrollLabel}">
+                    <Button.ToolTip><ToolTip Content="{DynamicResource Ui.ScrollAutoTip}"/></Button.ToolTip>
                     <TextBlock x:Name="AutoScrollLabel" Text="{DynamicResource Ui.ScrollAuto}"
                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>

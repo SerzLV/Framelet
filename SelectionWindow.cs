@@ -10,7 +10,7 @@ namespace Framelet;
 internal sealed class SelectionWindow : Window
 {
     internal SelectionWindow(ScreenSnapshot snapshot, bool activate, string promptKey,
-        Action<ScreenSnapshot, Int32Rect> selected, Action canceled)
+        Action<ScreenSnapshot, Int32Rect> selected, Action canceled, Int32Rect? extension = null)
     {
         Title = UiText.Get("SelectionTitle");
         WindowStyle = WindowStyle.None;
@@ -20,7 +20,7 @@ internal sealed class SelectionWindow : Window
         ShowActivated = activate;
         Topmost = true;
         Background = Brushes.Black;
-        Content = new SelectionSurface(snapshot, UiText.Get(promptKey), region => selected(snapshot, region), canceled);
+        Content = new SelectionSurface(snapshot, UiText.Get(promptKey), region => selected(snapshot, region), canceled, extension);
         var bounds = snapshot.Bounds;
         Width = bounds.Width;
         Height = bounds.Height;
@@ -55,15 +55,17 @@ internal sealed class SelectionSurface : FrameworkElement
     private readonly string _prompt;
     private readonly Action<Int32Rect> _selected;
     private readonly Action _canceled;
+    private readonly Int32Rect? _extension;
     private Point? _pointer;
     private Point? _start;
 
-    internal SelectionSurface(ScreenSnapshot snapshot, string prompt, Action<Int32Rect> selected, Action canceled)
+    internal SelectionSurface(ScreenSnapshot snapshot, string prompt, Action<Int32Rect> selected, Action canceled, Int32Rect? extension = null)
     {
         _snapshot = snapshot;
         _prompt = prompt;
         _selected = selected;
         _canceled = canceled;
+        _extension = extension;
         Focusable = true;
         Cursor = Cursors.Cross;
         ClipToBounds = true;
@@ -126,7 +128,7 @@ internal sealed class SelectionSurface : FrameworkElement
         _start = null;
         ReleaseMouseCapture();
         InvalidateVisual();
-        var region = PhysicalRect(new Rect(start, end));
+        var region = _extension is { } range ? ExtensionAt(range, end) : PhysicalRect(new Rect(start, end));
         if (region.Width >= 3 && region.Height >= 3)
             _selected(region);
 
@@ -140,6 +142,17 @@ internal sealed class SelectionSurface : FrameworkElement
             return;
 
         drawing.DrawImage(_snapshot.Image, bounds);
+        if (_extension is { } extension)
+        {
+            var strip = _pointer is { } pointer ? ExtensionAt(extension, pointer) : extension with { Height = 0 };
+            var xScale = bounds.Width / _snapshot.Bounds.Width;
+            var yScale = bounds.Height / _snapshot.Bounds.Height;
+            var selection = new Rect(strip.X * xScale, strip.Y * yScale, strip.Width * xScale, strip.Height * yScale);
+            DrawSelection(drawing, bounds, selection);
+            drawing.DrawLine(SelectionPen, selection.TopLeft, selection.TopRight);
+            DrawPrompt(drawing, bounds);
+            return;
+        }
         if (_pointer is not { } position)
         {
             drawing.DrawRectangle(Shade, null, bounds);
@@ -149,11 +162,7 @@ internal sealed class SelectionSurface : FrameworkElement
         if (_start is { } start)
         {
             var selection = new Rect(start, position);
-            drawing.DrawRectangle(Shade, null, new Rect(0, 0, bounds.Width, selection.Top));
-            drawing.DrawRectangle(Shade, null, new Rect(0, selection.Bottom, bounds.Width, bounds.Height - selection.Bottom));
-            drawing.DrawRectangle(Shade, null, new Rect(0, selection.Top, selection.Left, selection.Height));
-            drawing.DrawRectangle(Shade, null, new Rect(selection.Right, selection.Top, bounds.Width - selection.Right, selection.Height));
-            drawing.DrawRectangle(null, SelectionPen, selection);
+            DrawSelection(drawing, bounds, selection);
             foreach (var corner in new[] { selection.TopLeft, selection.TopRight, selection.BottomLeft, selection.BottomRight })
                 drawing.DrawRectangle(Accent, null, new Rect(corner.X - 2.5, corner.Y - 2.5, 5, 5));
 
@@ -169,8 +178,28 @@ internal sealed class SelectionSurface : FrameworkElement
         drawing.DrawLine(CrosshairPen, new Point(position.X, 0), new Point(position.X, Math.Max(0, position.Y - 9)));
         drawing.DrawLine(CrosshairPen, new Point(position.X, Math.Min(bounds.Height, position.Y + 9)), new Point(position.X, bounds.Height));
         DrawMagnifier(drawing, position);
+        DrawPrompt(drawing, bounds);
+    }
+
+    private static void DrawSelection(DrawingContext drawing, Rect bounds, Rect selection)
+    {
+        drawing.DrawRectangle(Shade, null, new Rect(0, 0, bounds.Width, selection.Top));
+        drawing.DrawRectangle(Shade, null, new Rect(0, selection.Bottom, bounds.Width, Math.Max(0, bounds.Height - selection.Bottom)));
+        drawing.DrawRectangle(Shade, null, new Rect(0, selection.Top, selection.Left, selection.Height));
+        drawing.DrawRectangle(Shade, null, new Rect(selection.Right, selection.Top, Math.Max(0, bounds.Width - selection.Right), selection.Height));
+        drawing.DrawRectangle(null, SelectionPen, selection);
+    }
+
+    private void DrawPrompt(DrawingContext drawing, Rect bounds)
+    {
         var prompt = Text(_prompt, 14, Brushes.White);
         DrawBadge(drawing, prompt, new Point((bounds.Width - prompt.Width - 18) / 2, 24), Panel);
+    }
+
+    private Int32Rect ExtensionAt(Int32Rect range, Point pointer)
+    {
+        var y = (int)Math.Ceiling(pointer.Y * _snapshot.Bounds.Height / ActualHeight);
+        return range with { Height = Math.Clamp(y - range.Y, 0, range.Height) };
     }
 
     private void DrawMagnifier(DrawingContext drawing, Point pointer)
