@@ -76,14 +76,20 @@ public partial class MainWindow
         {
             await RunOperation(async () =>
             {
+                if (MessageBox.Show(this, UiText.Format("RecycleConfirm", item.DisplayName), UiText.Get("Delete"),
+                        MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel) != MessageBoxResult.OK)
+                    return;
+
                 try
                 {
-                    RefreshHistory(await Task.Run(() => _history.Delete(item.FilePath)));
+                    await Task.Run(() => _history.Delete(item.FilePath));
                 }
                 catch (OperationCanceledException)
                 {
                     return;
                 }
+                RefreshHistory(_recent.Where(entry => !string.Equals(entry.FilePath, item.FilePath, StringComparison.OrdinalIgnoreCase))
+                    .ToArray());
                 Report(UiText.Get("HistoryItemDeleted"));
             });
         }

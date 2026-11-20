@@ -228,15 +228,14 @@ internal sealed class HistoryStore
         }
     }
 
-    internal IReadOnlyList<HistoryItem> Delete(string path)
+    internal void Delete(string path)
     {
         lock (_gate)
         {
             if (!BelongsToHistory(path))
                 throw new IOException("The screenshot is no longer a Framelet history file.");
-            FileSystem.DeleteFile(path, UIOption.AllDialogs, RecycleOption.SendToRecycleBin, UICancelOption.ThrowException);
+            FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin, UICancelOption.ThrowException);
             _textCache.Remove(path);
-            return LoadAndClean();
         }
     }
 

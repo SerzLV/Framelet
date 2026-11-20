@@ -27,11 +27,12 @@ public partial class MainWindow
     private Drawing.Icon? _trayIcon;
     private HwndSource? _windowSource;
     private ScrollCaptureWindow? _scrollCapture;
+    private volatile bool _captureInProgress;
     private bool _quickCapturePending;
 
     private void RequestQuickCapture()
     {
-        if (_quitting || !_printScreen.IsActive)
+        if (_quitting || !_printScreen.IsActive || _captureInProgress)
             return;
         if (_busy)
             _quickCapturePending = true;
@@ -254,7 +255,9 @@ public partial class MainWindow
 
             try
             {
-                await Task.Delay(mode == CaptureMode.Delayed ? 3000 : 65);
+                if (mode == CaptureMode.Delayed)
+                    await AuxiliaryWindows.ShowCaptureCountdownAsync();
+                await Task.Delay(65);
                 Native.DwmFlush();
                 BitmapSource? image = mode switch
                 {
@@ -280,7 +283,7 @@ public partial class MainWindow
                 ShowWorkspace();
                 throw;
             }
-        });
+        }, capturing: true);
     }
 
     private async Task CaptureQuickToClipboardAsync()

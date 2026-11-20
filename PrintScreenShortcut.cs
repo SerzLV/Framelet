@@ -5,7 +5,7 @@ using System.Windows.Threading;
 
 namespace Framelet;
 
-internal sealed class PrintScreenShortcut(Dispatcher dispatcher, Action capture) : IDisposable
+internal sealed class PrintScreenShortcut(Dispatcher dispatcher, Action capture, Func<bool>? acceptRequest = null) : IDisposable
 {
     private const int Snapshot = 0x2C;
     private const int KeyDown = 0x0100;
@@ -81,7 +81,8 @@ internal sealed class PrintScreenShortcut(Dispatcher dispatcher, Action capture)
                     if (!HasModifiers())
                     {
                         _suppressUntilRelease = true;
-                        dispatcher.BeginInvoke(DispatcherPriority.Input, capture);
+                        if (acceptRequest?.Invoke() != false)
+                            dispatcher.BeginInvoke(DispatcherPriority.Input, capture);
                         return 1;
                     }
                     break;

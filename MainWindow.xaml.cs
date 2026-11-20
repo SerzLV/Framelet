@@ -37,9 +37,10 @@ public partial class MainWindow : Window
         _preferences = _history.LoadPreferences();
         _history.ConfigureStorage(_preferences);
         _foregroundTracker = new ForegroundWindowTracker(((App)Application.Current).InitialForeground);
-        _printScreen = new PrintScreenShortcut(Dispatcher, RequestQuickCapture);
+        _printScreen = new PrintScreenShortcut(Dispatcher, RequestQuickCapture, () => !_captureInProgress);
         UiText.Apply(_preferences.Language);
         InitializeComponent();
+        SettingsVersion.Text = "v" + typeof(MainWindow).Assembly.GetName().Version?.ToString(3);
         HistoryItems.ItemsSource = _historyCards;
         InitializeCaptureShortcuts();
         Language = XmlLanguage.GetLanguage(UiText.Culture.Name);
@@ -848,12 +849,15 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task RunOperation(Func<Task> action)
+    private async Task RunOperation(Func<Task> action, bool capturing = false)
     {
         if (_busy)
             return;
 
         _busy = true;
+        _captureInProgress = capturing;
+        if (capturing)
+            _quickCapturePending = false;
         try
         {
             await action();
@@ -872,6 +876,7 @@ public partial class MainWindow : Window
         }
         finally
         {
+            _captureInProgress = false;
             _busy = false;
             CompleteCaptureRequest();
             RunPendingQuickCapture();

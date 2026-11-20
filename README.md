@@ -8,6 +8,8 @@
 
 Press `Print Screen`, select an area, and paste the screenshot straight into a chat or document. Open the editor to point out a detail with a curved arrow, select text directly on the image, or cover contact details before sharing.
 
+[**Download Framelet for Windows x64**](https://github.com/SerzLV/Framelet/releases/latest). Run `Framelet.exe` or use the ZIP bundle with license notices. The .NET Desktop Runtime is included.
+
 ![Framelet editor showing a curved arrow, an ellipse, and recognized text](docs/images/framelet-editor.png)
 
 ## Features
@@ -33,6 +35,8 @@ The interface is available in English and Russian. Switch languages in Settings.
 ## Keyboard shortcuts
 
 The table shows the defaults. Change the global capture shortcuts and the shortcut for opening the last screenshot in **Settings**.
+
+Framelet uses a Windows keyboard hook to handle plain `Print Screen` while the app is in the tray. The hook starts region capture and can be disabled in **Settings**. Auto-scroll sends mouse-wheel input to the selected window.
 
 | Shortcut | Action |
 | --- | --- |
@@ -82,6 +86,8 @@ Choose where to save PNGs in Settings. The default folder is `%LOCALAPPDATA%\Fra
 
 The history list has no item limit. Framelet loads thumbnails as you scroll. Clearing history keeps the saved PNGs in your folders and clears the edit history and OCR index for those entries. The Recycle Bin restores the finished PNG. History search caches recognized text locally in Framelet's application data folder.
 
+Deleting one screenshot updates the list immediately. Framelet checks for orphaned edit journals when it loads the history.
+
 Framelet keeps the original images and edit history for edited screenshots in `%LOCALAPPDATA%\Framelet\Edits`. The clipboard and exported PNG contain the finished image with your crops and annotations applied.
 
 ## Build from source
@@ -100,6 +106,8 @@ dotnet publish -c Release -r win-x64 `
 Run `publish\Framelet.exe`. The executable includes the .NET Desktop Runtime and OCR models. Closing the window keeps Framelet in the notification area. To exit, right-click the tray icon and select **Quit**.
 
 If the OCR module fails to load, install the [Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
+
+The published EXE is unsigned, so Windows SmartScreen may show a warning. Verify the download source and compare its SHA-256 hash with `SHA256SUMS.txt` in the release. [Microsoft SmartScreen documentation](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation)
 
 Run the regression checks on Windows with the .NET 10 SDK.
 

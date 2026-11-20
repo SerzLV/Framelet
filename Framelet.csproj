@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <Version>1.0.0</Version>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
@@ -23,6 +24,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup Condition="'$(FrameletReleaseLicenses)' != ''">
+    <Content Include="$(FrameletReleaseLicenses)\*" Link="licenses\%(Filename)%(Extension)" CopyToPublishDirectory="Always" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="libphonenumber-csharp" Version="9.0.43" />
