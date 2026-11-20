@@ -13,8 +13,8 @@ internal enum ScrollFrameResult
 
 internal sealed class ScrollStitcher
 {
-    private const int MaximumHeight = 14_000;
-    private const int MaximumPixels = 24_000_000;
+    private const int MaximumHeight = 32_000;
+    private const int MaximumPixels = 40_000_000;
     private readonly int _width;
     private readonly int _frameHeight;
     private readonly int _stride;
@@ -124,7 +124,7 @@ internal sealed class ScrollStitcher
     {
         const int MinimumStripVotes = 6;
         var height = previous[0].Length;
-        var maxOffset = height - Math.Max(32, height / 5);
+        var maxOffset = height - Math.Max(32, height / 8);
         if (maxOffset <= 0)
             return 0;
 

@@ -78,7 +78,11 @@
 
 ```powershell
 dotnet build -c Release
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o publish
+dotnet publish -c Release -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:DebugType=None -o publish
 ```
 
 Запустите `publish\Framelet.exe`. В этот EXE уже входят .NET Desktop Runtime и модели OCR. Кнопка закрытия сворачивает Framelet в область уведомлений. Для выхода откройте меню значка и выберите **Выйти**.

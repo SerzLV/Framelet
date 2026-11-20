@@ -89,6 +89,8 @@ internal partial class ScrollCaptureWindow : Window
 
             // Allow focus to move from the capture controls to the selected window.
             await Task.Delay(120);
+            const int endConfirmationAttempts = 3;
+            var unchangedAttempts = 0;
             while (!_closed && !_stopAutoScroll)
             {
                 await WaitForPanelClickAsync();
@@ -100,7 +102,20 @@ internal partial class ScrollCaptureWindow : Window
                     return;
                 }
                 var result = await CaptureFrameAsync(automatic: true);
-                if (result != ScrollFrameResult.Added)
+                if (result == ScrollFrameResult.Added)
+                {
+                    unchangedAttempts = 0;
+                }
+                else if (result == ScrollFrameResult.Unchanged && !_closed && !_stopAutoScroll)
+                {
+                    // A single wheel event may be ignored while a page is still rendering.
+                    if (++unchangedAttempts == endConfirmationAttempts)
+                    {
+                        CaptureStatus.Text = UiText.Get("ScrollAutoEnd");
+                        return;
+                    }
+                }
+                else
                 {
                     if (!_closed && _stopAutoScroll && result is not ScrollFrameResult.Limit)
                         CaptureStatus.Text = UiText.Get("ScrollAutoPaused");
@@ -134,8 +149,12 @@ internal partial class ScrollCaptureWindow : Window
             if (!automatic)
                 CaptureStatus.Text = UiText.Get("ScrollAligning");
             var attempt = await TryCaptureFrameAsync(automatic ? 300 : 200, automatic);
-            if (!_closed && (!automatic || !_stopAutoScroll) && attempt?.Result is (ScrollFrameResult.NoOverlap or ScrollFrameResult.Unchanged))
-                attempt = await TryCaptureFrameAsync(220, automatic);
+            var retries = automatic ? 2 : 1;
+            for (var retry = 0; retry < retries && !_closed && (!automatic || !_stopAutoScroll)
+                && attempt?.Result is (ScrollFrameResult.NoOverlap or ScrollFrameResult.Unchanged); retry++)
+            {
+                attempt = await TryCaptureFrameAsync(retry == 0 ? 220 : 420, automatic);
+            }
             if (_closed || attempt is not { } capture)
                 return null;
 
@@ -145,13 +164,14 @@ internal partial class ScrollCaptureWindow : Window
                 LastFrame.Source = frame;
                 CaptureProgress.Text = UiText.Format("ScrollFrameCount", _stitcher.FrameCount, _stitcher.Height);
             }
-            CaptureStatus.Text = result switch
+            var status = result switch
             {
-                ScrollFrameResult.Added => UiText.Get(automatic ? "ScrollAutoRunning" : "ScrollFrameAdded"),
-                ScrollFrameResult.Unchanged => UiText.Get(automatic ? "ScrollAutoEnd" : "ScrollNoChange"),
-                ScrollFrameResult.Limit => UiText.Get("ScrollLimit"),
-                _ => UiText.Get("ScrollNoOverlap")
+                ScrollFrameResult.Added => automatic ? "ScrollAutoRunning" : "ScrollFrameAdded",
+                ScrollFrameResult.Unchanged => automatic ? "ScrollAutoRunning" : "ScrollNoChange",
+                ScrollFrameResult.Limit => "ScrollLimit",
+                _ => "ScrollNoOverlap"
             };
+            CaptureStatus.Text = UiText.Get(status);
             if (result == ScrollFrameResult.Limit)
                 _atLimit = true;
             if (!automatic)
