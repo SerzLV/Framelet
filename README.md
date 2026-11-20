@@ -1,90 +1,92 @@
 # Framelet
 
-**Скриншоты, пометки и копирование текста с экрана в одном приложении для Windows.**
+**English** · [Русский](README.ru.md)
 
-Нажмите `Print Screen`, выделите область и сразу вставьте снимок в чат или документ. Когда нужно объяснить деталь, откройте редактор, добавьте плавную стрелку, выделите текст прямо на снимке или скройте контактные данные перед отправкой.
+**Capture screenshots, add annotations, and copy text from images on Windows.**
 
-> **English** · Framelet is a Windows screenshot tool with scrolling capture, editable annotations, searchable history, and offline OCR for English, Latvian, and Russian. Switch the interface language in Settings. [Build commands](#сборка)
+Press `Print Screen`, select an area, and paste the screenshot straight into a chat or document. Open the editor to point out a detail with a curved arrow, select text directly on the image, or cover contact details before sharing.
 
-![Редактор Framelet с плавной стрелкой, эллипсом и результатами распознавания текста](docs/images/framelet-editor.png)
+![Framelet editor showing a curved arrow, an ellipse, and recognized text](docs/images/framelet-editor.png)
 
-## Возможности
+## Features
 
-| Инструмент | Что можно сделать |
+| Feature | What you can do |
 | --- | --- |
-| **Захват экрана** | Область, монитор под курсором, активное окно и снимок с задержкой. Длинные страницы можно снять с автоматической или ручной прокруткой. |
-| **Редактор** | Стрелки с управляемыми изгибами, линии, круги, прямоугольники, текст и нумерация. Любую пометку можно выделить, переместить и перекрасить. Есть обрезка, масштабирование колёсиком и инструмент «Рука». |
-| **Текст на снимке** | Выделение и копирование слов прямо на изображении. OCR работает локально и распознаёт русский, английский и латышский, в том числе на одном снимке в режиме «Авто». |
-| **Контактные данные** | Распознанные email, телефоны, почтовые адреса и ссылки можно копировать отдельно. Кнопка «Скрыть контакты» закрывает найденные email, телефоны и адреса перед экспортом. |
-| **История** | До 50 снимков с поиском по имени и тексту, переименованием, копированием и удалением. Сохранённый снимок можно снова открыть с редактируемыми пометками и десятью последними шагами отмены. |
-| **Работа из трея** | Быстрый доступ к захвату и последнему снимку, запуск с Windows и настраиваемая клавиша показа окна. Framelet помнит язык, размер окна, последний цвет и ещё три недавних оттенка. |
+| **Screen capture** | Capture a region, the monitor under the pointer, or the active window. Use delayed capture or stitch together a long page with automatic or manual scrolling. |
+| **Editor** | Add curved arrows, lines, circles, rectangles, text, and numbered markers. Select existing annotations to move them or change their color and thickness. Crop, zoom with the mouse wheel, and pan with the Hand tool. |
+| **Text recognition** | Select and copy words directly from the screenshot. OCR runs locally and recognizes English, Latvian, and Russian. Auto mode can read all three languages in one image. |
+| **Contact details** | Copy detected email addresses, phone numbers, postal addresses, and links individually. Use **Hide contact details** to cover detected emails, phone numbers, and addresses before exporting. |
+| **Screenshot history** | Keep up to 50 screenshots and search by name or recognized text. Rename, copy, or delete an entry from the history. Reopen saved screenshots with editable annotations and up to ten undo steps. |
+| **System tray** | Start Framelet with Windows, capture from the tray, and reopen the latest screenshot. Set a shortcut to show or hide Framelet. The app remembers your language, window size, and four most recent annotation colors. |
+
+The interface is available in English and Russian. Switch languages in Settings.
 
 <details>
-<summary>Главный экран и история</summary>
+<summary>Home screen and screenshot history</summary>
 
-![Главный экран Framelet с режимами захвата, недавними снимками и поиском](docs/images/framelet-history.png)
+![Framelet home screen showing capture modes, recent screenshots, and search](docs/images/framelet-history.png)
 
 </details>
 
-## Горячие клавиши
+## Keyboard shortcuts
 
-| Клавиши | Действие |
+| Shortcut | Action |
 | --- | --- |
-| `Print Screen` | Скопировать выделенную область в буфер |
-| `Ctrl + Shift + 1` | Выделить область и открыть её в редакторе |
-| `Ctrl + Shift + 2` | Снять монитор под курсором |
-| `Ctrl + Shift + 3` | Снять активное окно |
-| `Ctrl + Shift + 4` | Начать захват с прокруткой, добавить кадр или остановить автопрокрутку |
-| `Ctrl + Shift + 5` | Открыть последний снимок в редакторе |
-| `Ctrl + Alt + F10` | Показать Framelet или свернуть в трей. Сочетание можно изменить в настройках |
-| `Ctrl + E` | Распознать текст и включить выделение слов на снимке |
-| `Ctrl + V` | Открыть изображение из буфера обмена |
-| `Ctrl + C` / `Ctrl + S` | Копировать или сохранить PNG с пометками |
-| `Ctrl + Z` / `Ctrl + Y` | Отменить или повторить изменение |
+| `Print Screen` | Copy a selected region to the clipboard |
+| `Ctrl + Shift + 1` | Select a region and open it in the editor |
+| `Ctrl + Shift + 2` | Capture the monitor under the pointer |
+| `Ctrl + Shift + 3` | Capture the active window |
+| `Ctrl + Shift + 4` | Start scrolling capture, add a frame, or stop auto-scroll |
+| `Ctrl + Shift + 5` | Open the latest screenshot in the editor |
+| `Ctrl + Alt + F10` | Show Framelet or hide it in the tray. Change this shortcut in Settings |
+| `Ctrl + E` | Recognize text and enable text selection on the image |
+| `Ctrl + V` | Open an image from the clipboard |
+| `Ctrl + C` / `Ctrl + S` | Copy or save the annotated screenshot. In text selection mode, `Ctrl + C` copies the selected text |
+| `Ctrl + Z` / `Ctrl + Y` | Undo or redo a change |
 
 <details>
-<summary>Клавиши инструментов редактора</summary>
+<summary>Editor tools</summary>
 
-| Клавиша | Действие |
+| Key | Action |
 | --- | --- |
-| `S` / `Delete` | Выбрать пометку или удалить выбранную |
-| `O` | Эллипс. Удерживайте `Shift`, чтобы нарисовать круг |
-| `V` | Плавная стрелка с двумя контрольными точками |
-| `L` / `A` | Линия или стрелка с одной точкой изгиба |
-| `C` | Обрезка. `Enter` применяет рамку, `Esc` отменяет выделение |
-| `H` | «Рука» для перемещения по увеличенному снимку |
-| Колёсико мыши | Масштабирование вокруг курсора |
+| `S` / `Delete` | Select an annotation or delete the selected one |
+| `O` | Draw an ellipse. Hold `Shift` to draw a circle |
+| `V` | Draw a curved arrow with two control points |
+| `L` / `A` | Draw a line or arrow with one bend point |
+| `C` | Crop. Press `Enter` to apply or `Esc` to cancel |
+| `H` | Switch to the Hand tool to pan around a zoomed screenshot |
+| Mouse wheel | Zoom around the pointer |
 
 </details>
 
-## Захват длинной страницы
+## Capture a long page
 
-1. Откройте страницу и нажмите `Ctrl + Shift + 4`.
-2. Выделите прокручиваемую область между неподвижными панелями. Первый кадр сохранится сразу.
-3. Нажмите **Автопрокрутка**. Когда нужный участок снят, нажмите **Стоп**. В ручном режиме прокручивайте страницу небольшими шагами и нажимайте **Добавить кадр**.
-4. Нажмите **Открыть снимок**, чтобы проверить склейку и добавить пометки.
+1. Open the page and press `Ctrl + Shift + 4`.
+2. Select the part of the page that scrolls, leaving out fixed bars and the scrollbar. Framelet captures the first frame immediately.
+3. Click **Auto-scroll**. Click **Stop** once you have captured enough of the page. To capture manually, scroll down a little at a time and click **Add frame**.
+4. Click **Open screenshot** to inspect the stitched image and add annotations.
 
-## Хранение снимков
+## Screenshot storage
 
-Папку сохранения PNG можно сменить в настройках. По умолчанию используется `%LOCALAPPDATA%\Framelet\History`. Framelet объединяет историю из ранее выбранных папок. Автоматическое сохранение можно отключить. Тогда последний захват доступен до выхода из приложения.
+Choose where to save PNGs in Settings. The default folder is `%LOCALAPPDATA%\Framelet\History`. Framelet includes screenshots from previously selected folders in its history. You can turn off automatic saving and still reopen your most recent capture until you quit.
 
-Исходники отредактированных снимков и журналы правок хранятся в `%LOCALAPPDATA%\Framelet\Edits`. В буфер и экспортируемый PNG попадает итоговое изображение с обрезкой и пометками.
+Framelet keeps the original images and edit history for edited screenshots in `%LOCALAPPDATA%\Framelet\Edits`. The clipboard and exported PNG contain the finished image with your crops and annotations applied.
 
-## Сборка
+## Build from source
 
-Для сборки понадобится Windows и .NET 10 SDK. Выполните команды из корня репозитория.
+Build on Windows with the .NET 10 SDK. Run these commands from the repository root.
 
 ```powershell
 dotnet build -c Release
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o publish
 ```
 
-Запустите `publish\Framelet.exe`. В этот EXE уже входят .NET Desktop Runtime и модели OCR. Кнопка закрытия сворачивает Framelet в область уведомлений. Для выхода откройте меню значка и выберите **Выйти**.
+Run `publish\Framelet.exe`. The executable includes the .NET Desktop Runtime and OCR models. Closing the window keeps Framelet in the notification area. To exit, right-click the tray icon and select **Quit**.
 
-Если модуль распознавания не загружается, установите [Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
+If the OCR module fails to load, install the [Microsoft Visual C++ Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
 
-## Как устроен Framelet
+## How Framelet works
 
-Приложение написано на C# и WPF. Захват, склейка и распознавание находятся в `CaptureService`, `ScrollStitcher` и `OcrService`. `HistoryStore` сохраняет изображения, настройки и журналы правок.
+Framelet is written in C# and WPF. `CaptureService` handles screen capture, `ScrollStitcher` joins scrolling frames, and `OcrService` recognizes text. `HistoryStore` saves screenshots, preferences, and edit history.
 
-Для OCR используются [Tesseract](https://github.com/charlesw/tesseract) и модели [tessdata_fast 4.1.0](https://github.com/tesseract-ocr/tessdata_fast/releases/tag/4.1.0) с [лицензией Apache 2.0](Assets/Ocr/LICENSE). Номера телефонов разбираются с учётом региона Windows через [libphonenumber-csharp](https://www.nuget.org/packages/libphonenumber-csharp/9.0.43).
+OCR uses [Tesseract](https://github.com/charlesw/tesseract) and [tessdata_fast 4.1.0](https://github.com/tesseract-ocr/tessdata_fast/releases/tag/4.1.0) models under the [Apache 2.0 license](Assets/Ocr/LICENSE). Framelet parses phone numbers with [libphonenumber-csharp](https://www.nuget.org/packages/libphonenumber-csharp/9.0.43) using the Windows region setting.
