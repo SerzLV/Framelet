@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- WPF sets the process DPI mode in its manifest. WinForms only supplies the tray icon and monitor bounds. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Framelet.ico</ApplicationIcon>
+    <IncludeAllContentForSelfExtract Condition="'$(PublishSingleFile)' == 'true'">true</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile Condition="'$(PublishSingleFile)' == 'true'">true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages Condition="'$(PublishSingleFile)' == 'true'">en;ru</SatelliteResourceLanguages>
+    <AssemblyTitle>Framelet</AssemblyTitle>
+    <Description>Захват и редактирование снимков экрана</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Framelet.ico" />
+    <Content Include="Assets\Ocr\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="libphonenumber-csharp" Version="9.0.43" />
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+  </ItemGroup>
+</Project>
