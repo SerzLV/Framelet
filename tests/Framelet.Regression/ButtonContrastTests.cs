@@ -1,15 +1,12 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using Framelet;
 using ShapePath = System.Windows.Shapes.Path;
 
 internal static partial class Program
 {
-    private static void PrimaryButtonsKeepTheirForeground()
+    private static void PrimaryButtonsKeepTheirForeground(Application app)
     {
-        var app = new App();
-        app.InitializeComponent();
         var primary = (Style)app.FindResource("PrimaryButton");
         var ink = (SolidColorBrush)app.FindResource("Ink");
         var accent = (SolidColorBrush)app.FindResource("Accent");
@@ -46,7 +43,6 @@ internal static partial class Program
                 "A disabled primary button keeps its label readable");
         }
         Require(SameColor(access.Foreground, ink) && SameColor(icon.Stroke, ink), "The access label and icon use the same ink color");
-        app.Shutdown();
     }
 
     private static bool SameColor(Brush? brush, SolidColorBrush expected) =>

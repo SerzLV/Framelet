@@ -29,7 +29,18 @@ internal static partial class Program
             ScrollStitchingPreservesContent();
             ScrollStitchingKeepsOneFooter();
             PrintScreenHookRestarts();
-            PrimaryButtonsKeepTheirForeground();
+            var app = new App();
+            app.InitializeComponent();
+            app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            try
+            {
+                PrimaryButtonsKeepTheirForeground(app);
+                PinnedCaptureUsesConnectedDisplays(app);
+            }
+            finally
+            {
+                app.Shutdown();
+            }
         }
         finally
         {

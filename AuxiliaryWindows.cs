@@ -154,7 +154,11 @@ internal static class AuxiliaryWindows
     internal static Window ShowPin(Window owner, BitmapSource image, Drawing.Point? origin = null)
     {
         if (origin is { } point)
-            return ShowPinAtOriginalSize(image, point);
+        {
+            var bounds = new Drawing.Rectangle(point, new Drawing.Size(image.PixelWidth, image.PixelHeight));
+            if (Forms.Screen.AllScreens.Any(screen => screen.Bounds.IntersectsWith(bounds)))
+                return ShowPinAtOriginalSize(image, point);
+        }
 
         var ratio = Math.Min(1, Math.Min(570d / image.PixelWidth, 360d / image.PixelHeight));
         var window = new Window
@@ -169,14 +173,25 @@ internal static class AuxiliaryWindows
             WindowStartupLocation = WindowStartupLocation.Manual
         };
         window.SetResourceReference(Window.TitleProperty, UiText.Key("PinnedTitle"));
-        var position = owner.PointToScreen(new Point(Math.Max(0, owner.ActualWidth - window.Width - 65), 102));
-        var fromDevice = PresentationSource.FromVisual(owner)?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
-        var anchor = fromDevice.Transform(position);
-        var workArea = Forms.Screen.FromPoint(new Drawing.Point((int)position.X, (int)position.Y)).WorkingArea;
-        var area = new Rect(fromDevice.Transform(new Point(workArea.Left, workArea.Top)),
-            fromDevice.Transform(new Point(workArea.Right, workArea.Bottom)));
-        window.Left = Math.Clamp(anchor.X, area.Left, Math.Max(area.Left, area.Right - window.Width));
-        window.Top = Math.Clamp(anchor.Y, area.Top, Math.Max(area.Top, area.Bottom - window.Height));
+        var anchor = CaptureService.CursorPosition;
+        if (PresentationSource.FromVisual(owner) is not null)
+        {
+            var position = owner.PointToScreen(new Point(Math.Max(0, owner.ActualWidth - window.Width - 65), 102));
+            anchor = new Drawing.Point((int)position.X, (int)position.Y);
+        }
+        var area = Forms.Screen.FromPoint(anchor).WorkingArea;
+        window.SourceInitialized += (_, _) =>
+        {
+            const uint keepSizeAndActivation = 0x0001 | 0x0004 | 0x0010;
+            var handle = new WindowInteropHelper(window).Handle;
+            Native.SetWindowPos(handle, IntPtr.Zero, area.Left, area.Top, 0, 0, keepSizeAndActivation);
+            if (Native.GetWindowRect(handle, out var bounds))
+            {
+                var left = Math.Clamp(anchor.X, area.Left, Math.Max(area.Left, area.Right - (bounds.Right - bounds.Left)));
+                var top = Math.Clamp(anchor.Y, area.Top, Math.Max(area.Top, area.Bottom - (bounds.Bottom - bounds.Top)));
+                Native.SetWindowPos(handle, IntPtr.Zero, left, top, 0, 0, keepSizeAndActivation);
+            }
+        };
         var frame = new Border
         {
             BorderBrush = (Brush)Application.Current.FindResource("Stroke"),
@@ -271,6 +286,17 @@ internal static class AuxiliaryWindows
 
         var layout = new Grid { ClipToBounds = true };
         layout.Children.Add(preview);
+        layout.Children.Add(new Border
+        {
+            IsHitTestVisible = false,
+            BorderBrush = (Brush)Application.Current.FindResource("Canvas"),
+            BorderThickness = new Thickness(1),
+            Child = new Border
+            {
+                BorderBrush = (Brush)Application.Current.FindResource("Accent"),
+                BorderThickness = new Thickness(1)
+            }
+        });
         layout.Children.Add(close);
         layout.MouseEnter += (_, _) =>
         {
