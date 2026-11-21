@@ -7,6 +7,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../Framelet.csproj" />
+    <ProjectReference Include="../../src/Framelet/Framelet.csproj" />
   </ItemGroup>
 </Project>

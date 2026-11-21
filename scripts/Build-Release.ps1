@@ -2,9 +2,10 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $repository = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).ProviderPath
-$project = Join-Path $repository 'Framelet.csproj'
+$source = Join-Path $repository 'src\Framelet'
+$project = Join-Path $source 'Framelet.csproj'
 [xml]$projectXml = Get-Content -LiteralPath $project -Raw
-[xml]$manifest = Get-Content -LiteralPath (Join-Path $repository 'app.manifest') -Raw
+[xml]$manifest = Get-Content -LiteralPath (Join-Path $source 'app.manifest') -Raw
 $versionNode = $projectXml.SelectSingleNode('/Project/PropertyGroup/Version')
 $identity = $manifest.DocumentElement.SelectSingleNode("*[local-name() = 'assemblyIdentity']")
 if (!$versionNode -or !$identity) { throw 'Release version must be declared in Framelet.csproj and app.manifest.' }
@@ -53,7 +54,7 @@ try {
         Copy-Item -Destination $licenses
     Copy-Item -LiteralPath (Join-Path $repository 'LICENSE') -Destination $licenses
     $notices = Get-Content -LiteralPath (Join-Path $repository 'THIRD-PARTY-NOTICES.md') -Raw -Encoding UTF8
-    [IO.File]::WriteAllText((Join-Path $licenses 'THIRD-PARTY-NOTICES.md'), $notices.Replace('(Assets/Ocr/LICENSE)', '(LICENSE)'))
+    [IO.File]::WriteAllText((Join-Path $licenses 'THIRD-PARTY-NOTICES.md'), $notices.Replace('(src/Framelet/Assets/Ocr/LICENSE)', '(LICENSE)'))
 
     dotnet restore $project -r win-x64 -p:SelfContained=true -p:Configuration=Release
     if ($LASTEXITCODE -ne 0) { throw 'Release restore failed.' }

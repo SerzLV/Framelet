@@ -136,9 +136,11 @@ dotnet run -c Release --project tests/Framelet.Regression
 
 ## Как устроен Framelet
 
+[Приложение WPF и его ресурсы](src/Framelet) находятся в `src/Framelet`. Решение `Framelet.slnx` открывает приложение и регрессионные тесты вместе.
+
 Приложение написано на C# и WPF. Захват, склейка и распознавание находятся в `CaptureService`, `ScrollStitcher` и `OcrService`. `HistoryStore` сохраняет изображения, настройки и журналы правок.
 
-Для OCR используются [Tesseract](https://github.com/charlesw/tesseract) и модели [tessdata_fast 4.1.0](https://github.com/tesseract-ocr/tessdata_fast/releases/tag/4.1.0) с [лицензией Apache 2.0](Assets/Ocr/LICENSE). Номера телефонов разбираются с учётом региона Windows через [libphonenumber-csharp](https://www.nuget.org/packages/libphonenumber-csharp/9.0.43).
+Для OCR используются [Tesseract](https://github.com/charlesw/tesseract) и модели [tessdata_fast 4.1.0](https://github.com/tesseract-ocr/tessdata_fast/releases/tag/4.1.0) с [лицензией Apache 2.0](src/Framelet/Assets/Ocr/LICENSE). Номера телефонов разбираются с учётом региона Windows через [libphonenumber-csharp](https://www.nuget.org/packages/libphonenumber-csharp/9.0.43).
 
 ## Лицензия
 

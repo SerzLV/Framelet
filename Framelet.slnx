@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Framelet/Framelet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Framelet.Regression/Framelet.Regression.csproj" />
+  </Folder>
+</Solution>
