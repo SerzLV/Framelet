@@ -190,7 +190,7 @@ public sealed partial class EditorSurface : FrameworkElement
 
     internal void Reset(BitmapSource image, EditJournal? journal = null)
     {
-        FinishTextInput(save: false);
+        FinishTextInput(TextInputCompletion.Cancel);
         CancelDraft();
         _image = image;
         _crop = journal?.Crop;
@@ -212,7 +212,7 @@ public sealed partial class EditorSurface : FrameworkElement
 
     internal void Clear()
     {
-        FinishTextInput(save: false);
+        FinishTextInput(TextInputCompletion.Cancel);
         CancelDraft();
         _image = null;
         _crop = null;

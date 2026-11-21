@@ -30,7 +30,7 @@ public sealed partial class EditorSurface
         return true;
     }
 
-    internal void CommitTextInput() => FinishTextInput(save: true);
+    internal void CommitTextInput() => FinishTextInput(TextInputCompletion.Dismiss);
 
     private void StartTextClick(Annotation mark, int index = -1)
     {
@@ -56,14 +56,14 @@ public sealed partial class EditorSurface
             Content = UiText.Get(index < 0 ? "Add" : "Save"), ToolTip = "Enter",
             Style = (Style)FindResource("PrimaryButton"), Padding = new Thickness(10, 3, 10, 3)
         };
-        add.Click += (_, _) => FinishTextInput(save: true, returnFocus: true);
+        add.Click += (_, _) => FinishTextInput(TextInputCompletion.Confirm, returnFocus: true);
         var cancel = new Button
         {
             Content = "×", ToolTip = $"{UiText.Get("Cancel")} · Esc", Style = (Style)FindResource("GhostButton"),
             Padding = new Thickness(7, 2, 7, 3), Margin = new Thickness(3, 0, 0, 0)
         };
         AutomationProperties.SetName(cancel, UiText.Get("Cancel"));
-        cancel.Click += (_, _) => FinishTextInput(save: false, returnFocus: true);
+        cancel.Click += (_, _) => FinishTextInput(TextInputCompletion.Cancel, returnFocus: true);
         var actions = new DockPanel { Margin = new Thickness(0, 5, 0, 0) };
         DockPanel.SetDock(cancel, Dock.Right);
         DockPanel.SetDock(add, Dock.Right);
@@ -83,14 +83,14 @@ public sealed partial class EditorSurface
             if (e.Key != Key.Escape)
                 return;
             e.Handled = true;
-            FinishTextInput(save: false, returnFocus: true);
+            FinishTextInput(TextInputCompletion.Cancel, returnFocus: true);
         };
         field.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Key.Enter || Keyboard.Modifiers == ModifierKeys.Shift)
                 return;
             e.Handled = true;
-            FinishTextInput(save: true, returnFocus: true);
+            FinishTextInput(TextInputCompletion.Confirm, returnFocus: true);
         };
 
         var point = mark.Points[0] - new Vector(ViewX, ViewY);
@@ -122,7 +122,7 @@ public sealed partial class EditorSurface
         popup.IsOpen = true;
     }
 
-    private void FinishTextInput(bool save, bool returnFocus = false)
+    private void FinishTextInput(TextInputCompletion completion, bool returnFocus = false)
     {
         if (_textInput is not { } input)
             return;
@@ -130,16 +130,26 @@ public sealed partial class EditorSurface
         _textInput = null;
         input.Popup.IsOpen = false;
         InvalidateVisual();
-        if (save && input.Field.Text.Trim() is { Length: > 0 } text && text != input.Mark.Label)
-        {
-            var updated = input.Mark with { Label = text };
-            if (input.Index < 0)
-                Add(updated);
-            else if (input.Index < _marks.Count && ReferenceEquals(_marks[input.Index], input.Mark))
-                Commit(new Edit(input.Index, input.Mark, updated));
-        }
+        if (completion != TextInputCompletion.Cancel)
+            ApplyTextInput(input, deleteEmpty: completion == TextInputCompletion.Confirm);
         if (returnFocus && IsVisible)
             Focus();
+    }
+
+    private void ApplyTextInput(AnnotationTextDraft input, bool deleteEmpty)
+    {
+        var text = input.Field.Text.Trim();
+        if (text == input.Mark.Label || (text.Length == 0 && !deleteEmpty))
+            return;
+
+        var updated = text.Length == 0 ? null : input.Mark with { Label = text };
+        if (input.Index < 0)
+        {
+            if (updated is not null)
+                Add(updated);
+        }
+        else if (input.Index < _marks.Count && ReferenceEquals(_marks[input.Index], input.Mark))
+            Commit(new Edit(input.Index, input.Mark, updated));
     }
 
     private static double AnnotationTextSize(Annotation mark) => Math.Max(16, mark.Size * 5);
@@ -157,5 +167,6 @@ public sealed partial class EditorSurface
         drawing.DrawText(label, start);
     }
 
+    private enum TextInputCompletion { Cancel, Dismiss, Confirm }
     private sealed record AnnotationTextDraft(Popup Popup, TextBox Field, Annotation Mark, int Index);
 }
