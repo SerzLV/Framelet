@@ -182,6 +182,8 @@
     <sys:String x:Key="Ui.HistoryCleared">Local history cleared</sys:String>
     <sys:String x:Key="Ui.HistoryItemDeleted">Screenshot deleted from history</sys:String>
     <sys:String x:Key="Ui.HistoryItemsDeleted">Moved to the Recycle Bin · {0:N0}</sys:String>
+    <sys:String x:Key="Ui.HistoryDeleteProgress">Deleting… {0:N0} of {1:N0}</sys:String>
+    <sys:String x:Key="Ui.HistoryDeleteCanceled">Deletion canceled</sys:String>
     <sys:String x:Key="Ui.HistoryDeleteIncomplete">Moved to the Recycle Bin · {0:N0} of {1:N0}. The rest remain in history.</sys:String>
     <sys:String x:Key="Ui.RecycleConfirm">Move “{0}” to the Recycle Bin?</sys:String>
     <sys:String x:Key="Ui.RecycleMultipleConfirm">Move the selected screenshots ({0:N0}) to the Recycle Bin?</sys:String>

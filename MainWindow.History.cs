@@ -97,8 +97,13 @@ public partial class MainWindow
         UpdateHistorySelection();
     }
 
-    private void SelectAllHistory_Click(object sender, RoutedEventArgs e)
+    private void SelectAllHistory_Click(object sender, RoutedEventArgs e) => SelectAllHistory();
+
+    private void SelectAllHistory()
     {
+        if (_busy || _historyGesture is not null)
+            return;
+
         _selectedHistoryPaths.UnionWith(_filteredHistory.Select(item => item.FilePath));
         UpdateHistorySelection();
     }
@@ -122,12 +127,21 @@ public partial class MainWindow
         {
             var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var failed = false;
+            var deleting = true;
+            IProgress<int> progress = new Progress<int>(processed =>
+            {
+                if (deleting)
+                    Report(UiText.Format("HistoryDeleteProgress", processed, items.Count));
+            });
+            Report(UiText.Format("HistoryDeleteProgress", 0, items.Count));
             try
             {
                 await Task.Run(() =>
                 {
-                    foreach (var item in items)
+                    var sinceLastReport = Stopwatch.StartNew();
+                    for (var index = 0; index < items.Count; index++)
                     {
+                        var item = items[index];
                         try
                         {
                             _history.Delete(item.FilePath);
@@ -142,11 +156,17 @@ public partial class MainWindow
                             Trace.WriteLine(error);
                             failed = true;
                         }
+                        if (sinceLastReport.ElapsedMilliseconds >= 80 || index + 1 == items.Count)
+                        {
+                            progress.Report(index + 1);
+                            sinceLastReport.Restart();
+                        }
                     }
                 });
             }
             finally
             {
+                deleting = false;
                 if (removed.Count > 0)
                     RefreshHistory(_recent.Where(entry => !removed.Contains(entry.FilePath)).ToArray());
             }
@@ -155,6 +175,8 @@ public partial class MainWindow
                 Report(UiText.Format("HistoryDeleteIncomplete", removed.Count, items.Count), true);
             else if (removed.Count > 0)
                 Report(removed.Count == 1 ? UiText.Get("HistoryItemDeleted") : UiText.Format("HistoryItemsDeleted", removed.Count));
+            else
+                Report(UiText.Get("HistoryDeleteCanceled"));
         });
     }
 

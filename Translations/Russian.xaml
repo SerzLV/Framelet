@@ -182,6 +182,8 @@
     <sys:String x:Key="Ui.HistoryCleared">Локальная история очищена</sys:String>
     <sys:String x:Key="Ui.HistoryItemDeleted">Снимок удалён из истории</sys:String>
     <sys:String x:Key="Ui.HistoryItemsDeleted">Отправлено в корзину · {0:N0}</sys:String>
+    <sys:String x:Key="Ui.HistoryDeleteProgress">Удаляем… {0:N0} из {1:N0}</sys:String>
+    <sys:String x:Key="Ui.HistoryDeleteCanceled">Удаление отменено</sys:String>
     <sys:String x:Key="Ui.HistoryDeleteIncomplete">Отправлено в корзину · {0:N0} из {1:N0}. Остальные снимки остались в истории.</sys:String>
     <sys:String x:Key="Ui.RecycleConfirm">Отправить «{0}» в корзину?</sys:String>
     <sys:String x:Key="Ui.RecycleMultipleConfirm">Отправить выбранные снимки ({0:N0}) в корзину?</sys:String>

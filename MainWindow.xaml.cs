@@ -601,9 +601,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (IsSelectingHistory && HomeView.IsVisible && HomeView.IsEnabled && Keyboard.Modifiers == ModifierKeys.None)
+        if (IsSelectingHistory && HomeView.IsVisible && HomeView.IsEnabled)
         {
-            if (e.Key == Key.Escape && (!HistorySearch.IsKeyboardFocusWithin || HistorySearch.Text.Length == 0))
+            var modifiers = Keyboard.Modifiers;
+            if (modifiers == ModifierKeys.Control && e.Key == Key.A && !HistorySearch.IsKeyboardFocusWithin)
+            {
+                e.Handled = true;
+                if (!e.IsRepeat)
+                    SelectAllHistory();
+                return;
+            }
+            if (modifiers == ModifierKeys.None && e.Key == Key.Escape
+                && (!HistorySearch.IsKeyboardFocusWithin || HistorySearch.Text.Length == 0))
             {
                 e.Handled = true;
                 HistorySelectionToggle.IsChecked = false;
@@ -612,7 +621,7 @@ public partial class MainWindow : Window
                 HistorySelectionToggle.Focus();
                 return;
             }
-            if (e.Key == Key.Delete && !HistorySearch.IsKeyboardFocusWithin)
+            if (modifiers == ModifierKeys.None && e.Key == Key.Delete && !HistorySearch.IsKeyboardFocusWithin)
             {
                 e.Handled = true;
                 if (!e.IsRepeat)
