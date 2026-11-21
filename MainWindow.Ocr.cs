@@ -75,7 +75,7 @@ public partial class MainWindow
             OcrContacts.ItemsSource = result.Contacts;
             OcrContactsBlock.Visibility = result.Contacts.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             _contactRegions = result.ContactRegions;
-            OcrRedactButton.Visibility = _contactRegions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            OcrRedactActions.Visibility = _contactRegions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             OcrResults.Visibility = Visibility.Visible;
             OcrCanvasText.SetLayout(result.Layout);
             UpdateOcrImageMode();
@@ -144,7 +144,7 @@ public partial class MainWindow
     private void ClearOcrResults()
     {
         _contactRegions = [];
-        OcrRedactButton.Visibility = Visibility.Collapsed;
+        OcrRedactActions.Visibility = Visibility.Collapsed;
         ClearOcrCopyFeedback();
         OcrCanvasText.SetLayout(null);
         UpdateOcrImageMode();

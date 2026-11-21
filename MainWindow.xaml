@@ -549,13 +549,18 @@
                                     <StackPanel x:Name="OcrResults" Visibility="Collapsed">
                                         <StackPanel x:Name="OcrContactsBlock" Visibility="Collapsed">
                                             <TextBlock Text="{DynamicResource Ui.OcrDetected}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
-                                            <Button x:Name="OcrRedactButton" Click="RedactOcrContacts_Click" HorizontalAlignment="Stretch"
-                                                    ToolTip="{DynamicResource Ui.OcrRedactTip}" Margin="0,0,0,8" Visibility="Collapsed">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Path Style="{StaticResource Icon}" Data="{StaticResource RedactIcon}" Width="15" Height="15"/>
-                                                    <TextBlock Text="{DynamicResource Ui.OcrRedactContacts}" Margin="7,0,0,0"/>
-                                                </StackPanel>
-                                            </Button>
+                                            <StackPanel x:Name="OcrRedactActions" Margin="0,0,0,8" Visibility="Collapsed">
+                                                <Button Click="RedactOcrContacts_Click" HorizontalAlignment="Stretch"
+                                                        ToolTip="{DynamicResource Ui.OcrRedactTip}"
+                                                        AutomationProperties.HelpText="{DynamicResource Ui.OcrRedactSourceNote}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path Style="{StaticResource Icon}" Data="{StaticResource RedactIcon}" Width="15" Height="15"/>
+                                                        <TextBlock Text="{DynamicResource Ui.OcrRedactContacts}" Margin="7,0,0,0"/>
+                                                    </StackPanel>
+                                                </Button>
+                                                <TextBlock Text="{DynamicResource Ui.OcrRedactSourceNote}" Style="{StaticResource MutedText}"
+                                                           FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                            </StackPanel>
                                             <ItemsControl x:Name="OcrContacts">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>

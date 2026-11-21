@@ -5,7 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Framelet;
 
-internal static class Program
+internal static partial class Program
 {
     [STAThread]
     private static void Main()
@@ -19,6 +19,8 @@ internal static class Program
             OcrCacheTracksImageChanges(directory.FullName);
             LanguageFollowsSystem();
             ExportPreservesLargeImage();
+            ScrollStitchingPreservesContent();
+            ScrollStitchingKeepsOneFooter();
             PrintScreenHookRestarts();
         }
         finally

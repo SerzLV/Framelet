@@ -224,6 +224,7 @@
     <sys:String x:Key="Ui.ScrollAutoWindow">Автопрокрутка остановлена. Вернитесь к выбранному окну или добавьте кадр вручную.</sys:String>
     <sys:String x:Key="Ui.OcrRedactContacts">Скрыть контакты</sys:String>
     <sys:String x:Key="Ui.OcrRedactTip">Закрывает найденные телефоны, email и адреса на снимке.</sys:String>
+    <sys:String x:Key="Ui.OcrRedactSourceNote">Если история включена, исходник с контактами остаётся в журнале правок на устройстве.</sys:String>
     <sys:String x:Key="Ui.OcrContactsHidden">Найденные контакты скрыты. Проверьте снимок перед отправкой.</sys:String>
     <sys:String x:Key="Ui.HistoryIndexProgress">Распознаём текст в истории · {0} / {1}</sys:String>
     <sys:String x:Key="Ui.HistorySearching">Ищем текст на снимках</sys:String>

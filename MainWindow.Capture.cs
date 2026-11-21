@@ -85,9 +85,9 @@ public partial class MainWindow
 
         var menu = new TrayMenu(_trayIcon);
         menu.AddCommand("TrayOpen", "Launch", (_, _) => Dispatcher.Invoke(ShowWorkspace));
+        menu.AddCommand("OpenLastCapture", "Launch", (_, _) => RequestOpenLastCapture());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.AddCommand("CaptureQuickClipboard", "Crop", async (_, _) => await CaptureAsync(CaptureMode.QuickClipboard));
-        menu.AddCommand("OpenLastCapture", "Launch", (_, _) => RequestOpenLastCapture());
         menu.AddCommand("CaptureRegion", "Pen", async (_, _) => await CaptureAsync(CaptureMode.Region));
         menu.AddCommand("CaptureScreen", "Screen", async (_, _) => await CaptureAsync(CaptureMode.Screen));
         menu.AddCommand("CaptureWindow", "Window", async (_, _) => await CaptureAsync(CaptureMode.Window));

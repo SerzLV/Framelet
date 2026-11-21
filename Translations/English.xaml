@@ -224,6 +224,7 @@
     <sys:String x:Key="Ui.ScrollAutoWindow">Auto-scroll stopped. Return to the selected window or add a frame manually.</sys:String>
     <sys:String x:Key="Ui.OcrRedactContacts">Hide contact details</sys:String>
     <sys:String x:Key="Ui.OcrRedactTip">Covers detected phone numbers, emails, and addresses in the screenshot.</sys:String>
+    <sys:String x:Key="Ui.OcrRedactSourceNote">With history enabled, the unredacted original stays in the local edit history.</sys:String>
     <sys:String x:Key="Ui.OcrContactsHidden">Detected contact details are covered. Review the screenshot before sharing.</sys:String>
     <sys:String x:Key="Ui.HistoryIndexProgress">Reading screenshot text · {0} / {1}</sys:String>
     <sys:String x:Key="Ui.HistorySearching">Searching screenshot text</sys:String>

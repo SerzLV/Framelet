@@ -11,7 +11,6 @@ internal sealed class TrayMenu : Forms.ContextMenuStrip
     private static readonly Drawing.Color Surface = Drawing.Color.FromArgb(24, 31, 41);
     private static readonly Drawing.Color Outline = Drawing.Color.FromArgb(57, 71, 87);
     private static readonly Drawing.Color Hover = Drawing.Color.FromArgb(38, 51, 64);
-    private static readonly Drawing.Color ShortcutFill = Drawing.Color.FromArgb(43, 57, 70);
     private static readonly Drawing.Color Keyboard = Drawing.Color.FromArgb(174, 191, 207);
     private static readonly Drawing.Color TextColor = Drawing.Color.FromArgb(241, 245, 250);
     private static readonly Drawing.Color ExitColor = Drawing.Color.FromArgb(255, 170, 178);
@@ -26,8 +25,6 @@ internal sealed class TrayMenu : Forms.ContextMenuStrip
         BackColor = Surface;
         ForeColor = TextColor;
         Font = _menuFont;
-        MinimumSize = new Drawing.Size(278, 0);
-        Padding = new Forms.Padding(6, 5, 6, 6);
         ShowImageMargin = true;
         ShowCheckMargin = false;
         ImageScalingSize = new Drawing.Size(18, 18);
@@ -41,8 +38,8 @@ internal sealed class TrayMenu : Forms.ContextMenuStrip
             Font = _brandFont,
             ForeColor = TextColor,
             ImageScaling = Forms.ToolStripItemImageScaling.None,
-            Margin = new Forms.Padding(4, 4, 3, 3),
-            Padding = new Forms.Padding(4, 3, 3, 4)
+            Margin = new Forms.Padding(0, 3, 0, 2),
+            Padding = new Forms.Padding(2)
         });
         Items.Add(new Forms.ToolStripSeparator());
     }
@@ -55,7 +52,6 @@ internal sealed class TrayMenu : Forms.ContextMenuStrip
         {
             ForeColor = label == "TrayExit" ? ExitColor : TextColor,
             Name = label,
-            Padding = new Forms.Padding(6, 5, 10, 5),
             ShowShortcutKeys = false
         };
         _commands.Add(label, item);
@@ -142,35 +138,29 @@ internal sealed class TrayMenu : Forms.ContextMenuStrip
 
         protected override void OnRenderMenuItemBackground(Forms.ToolStripItemRenderEventArgs e)
         {
-            if (!e.Item.Selected || !e.Item.Enabled)
+            if (!e.Item.Selected || !e.Item.Enabled || e.ToolStrip is not { } strip)
                 return;
-            var box = new Drawing.Rectangle(2, 0, e.Item.Width - 4, e.Item.Height);
-            PaintRounded(e.Graphics, box, Hover, 6);
+            var inset = strip.LogicalToDeviceUnits(5);
+            var box = new Drawing.Rectangle(inset - e.Item.Bounds.Left, 1,
+                strip.ClientSize.Width - inset * 2, e.Item.Height - 2);
+            PaintRounded(e.Graphics, box, Hover, strip.LogicalToDeviceUnits(6));
         }
 
         protected override void OnRenderSeparator(Forms.ToolStripSeparatorRenderEventArgs e)
         {
+            if (e.ToolStrip is not { } strip)
+                return;
             using var pen = new Drawing.Pen(Outline);
             var middle = e.Item.Height / 2;
-            e.Graphics.DrawLine(pen, 8, middle, Math.Max(8, e.Item.Width - 8), middle);
+            var inset = strip.LogicalToDeviceUnits(10);
+            var left = inset - e.Item.Bounds.Left;
+            e.Graphics.DrawLine(pen, left, middle, left + strip.ClientSize.Width - inset * 2, middle);
         }
 
         protected override void OnRenderItemText(Forms.ToolStripItemTextRenderEventArgs e)
         {
-            if (e.Item is Forms.ToolStripMenuItem { ShowShortcutKeys: true } item
-                && e.Text == item.ShortcutKeyDisplayString)
-            {
-                var size = Forms.TextRenderer.MeasureText(e.Graphics, e.Text, e.TextFont, Drawing.Size.Empty, Forms.TextFormatFlags.NoPadding);
-                var textArea = e.TextRectangle;
-                var box = new Drawing.Rectangle(e.Item.Width - size.Width - 22,
-                    textArea.Top + (textArea.Height - size.Height) / 2 - 2, size.Width + 10, size.Height + 4);
-                PaintRounded(e.Graphics, box, ShortcutFill, 5);
-                e.TextRectangle = new Drawing.Rectangle(box.Left + 5, textArea.Top, size.Width, textArea.Height);
-                e.TextFormat |= Forms.TextFormatFlags.NoPadding;
-                e.TextColor = Keyboard;
-            }
-            else
-                e.TextColor = e.Item.ForeColor;
+            e.TextColor = e.Item is Forms.ToolStripMenuItem { ShowShortcutKeys: true } item
+                && e.Text == item.ShortcutKeyDisplayString ? Keyboard : e.Item.ForeColor;
             base.OnRenderItemText(e);
         }
 

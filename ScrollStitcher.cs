@@ -16,13 +16,16 @@ internal sealed class ScrollStitcher
 {
     private const int MaximumHeight = 32_000;
     private const int MaximumPixels = 40_000_000;
+    private const int MinimumFooterRows = 4;
     private readonly int _width;
     private readonly int _frameHeight;
     private readonly int _stride;
     private readonly List<byte[]> _parts = [];
     private ulong[][] _previousRows;
     private byte[]? _frameBuffer;
+    private byte[]? _footer;
     private byte[]? _tail;
+    private int _frameCount = 1;
 
     internal ScrollStitcher(BitmapSource first)
     {
@@ -37,7 +40,7 @@ internal sealed class ScrollStitcher
     }
 
     internal int Height { get; private set; }
-    internal int FrameCount => _parts.Count + (_tail is null ? 0 : 1);
+    internal int FrameCount => _frameCount + (_tail is null ? 0 : 1);
 
     internal ScrollFrameResult TryAppend(BitmapSource frame)
     {
@@ -50,7 +53,20 @@ internal sealed class ScrollStitcher
         if (MatchesPrevious(rows))
             return ScrollFrameResult.Unchanged;
 
-        var offset = FindOffset(_previousRows, rows);
+        var contentHeight = _frameHeight - (_footer?.Length ?? 0) / _stride;
+        var offset = 0;
+        if (_footer is null)
+        {
+            var stationaryTop = FindStationaryBottom(rows);
+            if (_frameHeight - stationaryTop >= MinimumFooterRows)
+            {
+                offset = FindOffset(_previousRows, rows, stationaryTop);
+                if (offset > 0)
+                    contentHeight = ConfirmFooterTop(rows, stationaryTop, offset);
+            }
+        }
+        if (contentHeight == _frameHeight || _footer is not null)
+            offset = FindOffset(_previousRows, rows, contentHeight);
         if (offset <= 0)
             return ScrollFrameResult.NoOverlap;
 
@@ -58,8 +74,17 @@ internal sealed class ScrollStitcher
         if (ExceedsSizeLimit(height))
             return ScrollFrameResult.Limit;
 
-        _parts.Add(pixels.AsSpan((_frameHeight - offset) * _stride).ToArray());
+        var footerBytes = (_frameHeight - contentHeight) * _stride;
+        if (footerBytes > 0)
+        {
+            if (_footer is null)
+                TrimBottom(footerBytes);
+            _footer ??= GC.AllocateUninitializedArray<byte>(footerBytes);
+            pixels.AsSpan(contentHeight * _stride).CopyTo(_footer);
+        }
+        _parts.Add(pixels.AsSpan((contentHeight - offset) * _stride, offset * _stride).ToArray());
         _previousRows = rows;
+        _frameCount++;
         Height = height;
         return ScrollFrameResult.Added;
     }
@@ -104,6 +129,12 @@ internal sealed class ScrollStitcher
             image.WritePixels(new Int32Rect(0, 0, _width, height), part, _stride, 0, top);
             top += height;
         }
+        if (_footer is { } footer)
+        {
+            var height = footer.Length / _stride;
+            image.WritePixels(new Int32Rect(0, 0, _width, height), footer, _stride, 0, top);
+            top += height;
+        }
         if (_tail is { } tail)
             image.WritePixels(new Int32Rect(0, 0, _width, tail.Length / _stride), tail, _stride, 0, top);
         image.Freeze();
@@ -114,6 +145,57 @@ internal sealed class ScrollStitcher
 
     private bool MatchesPrevious(ulong[][] rows) =>
         rows.Zip(_previousRows).All(pair => pair.First.AsSpan().SequenceEqual(pair.Second));
+
+    private int FindStationaryBottom(ulong[][] rows)
+    {
+        var top = _frameHeight;
+        while (top > 0 && MatchesRow(rows, top - 1, top - 1))
+            top--;
+        return top;
+    }
+
+    private int ConfirmFooterTop(ulong[][] rows, int stationaryTop, int offset)
+    {
+        // Ordinary blank or repeated rows may match at both offsets. A fixed footer covers different content.
+        var top = _frameHeight;
+        var differences = 0;
+        var minimumDifferences = Math.Min(MinimumFooterRows, offset);
+        for (var y = stationaryTop; y < Math.Min(_frameHeight, stationaryTop + offset); y++)
+        {
+            if (MatchesRow(rows, y, y - offset))
+                continue;
+            if (differences++ == 0)
+                top = y;
+            if (differences == minimumDifferences)
+                return top;
+        }
+        return _frameHeight;
+    }
+
+    private bool MatchesRow(ulong[][] rows, int previousY, int currentY)
+    {
+        for (var strip = 0; strip < rows.Length; strip++)
+        {
+            if (_previousRows[strip][previousY] != rows[strip][currentY])
+                return false;
+        }
+        return true;
+    }
+
+    private void TrimBottom(int bytes)
+    {
+        while (bytes > 0)
+        {
+            var last = _parts[^1];
+            if (last.Length > bytes)
+            {
+                _parts[^1] = last.AsSpan(0, last.Length - bytes).ToArray();
+                return;
+            }
+            bytes -= last.Length;
+            _parts.RemoveAt(_parts.Count - 1);
+        }
+    }
 
     private byte[] AllocateFrame() => GC.AllocateUninitializedArray<byte>(checked(_stride * _frameHeight));
 
@@ -151,10 +233,9 @@ internal sealed class ScrollStitcher
         return hashes;
     }
 
-    private static int FindOffset(ulong[][] previous, ulong[][] current)
+    private static int FindOffset(ulong[][] previous, ulong[][] current, int height)
     {
         const int MinimumStripVotes = 6;
-        var height = previous[0].Length;
         var maxOffset = height - Math.Max(32, height / 8);
         if (maxOffset <= 0)
             return 0;
@@ -163,7 +244,7 @@ internal sealed class ScrollStitcher
         var totals = new int[maxOffset * 2 + 1];
         for (var strip = 0; strip < previous.Length; strip++)
         {
-            var stripVotes = votes[strip] = CountOffsets(previous[strip], current[strip], maxOffset);
+            var stripVotes = votes[strip] = CountOffsets(previous[strip], current[strip], height, maxOffset);
             var stationary = stripVotes[maxOffset];
             for (var index = 0; index < stripVotes.Length; index++)
                 if (stripVotes[index] >= MinimumStripVotes && stripVotes[index] > stationary)
@@ -185,7 +266,7 @@ internal sealed class ScrollStitcher
                 if (support < MinimumStripVotes || support <= votes[strip][maxOffset])
                     continue;
 
-                var agreement = Agreement(previous[strip], current[strip], offset);
+                var agreement = Agreement(previous[strip], current[strip], height, offset);
                 if (agreement >= .72)
                     score += support * agreement;
             }
@@ -203,11 +284,11 @@ internal sealed class ScrollStitcher
         return bestScore >= 12 && otherScore < bestScore * .87 ? bestOffset : 0;
     }
 
-    private static int[] CountOffsets(ulong[] previous, ulong[] current, int maxOffset)
+    private static int[] CountOffsets(ulong[] previous, ulong[] current, int height, int maxOffset)
     {
         const int RepeatedRowLimit = 5;
         var positions = new Dictionary<ulong, List<int>>();
-        for (var row = 0; row < current.Length; row++)
+        for (var row = 0; row < height; row++)
         {
             if (!positions.TryGetValue(current[row], out var rows))
                 positions.Add(current[row], [row]);
@@ -216,7 +297,7 @@ internal sealed class ScrollStitcher
         }
 
         var votes = new int[maxOffset * 2 + 1];
-        for (var row = 0; row < previous.Length; row++)
+        for (var row = 0; row < height; row++)
         {
             if (!positions.TryGetValue(previous[row], out var rows) || rows.Count > RepeatedRowLimit)
                 continue;
@@ -232,11 +313,11 @@ internal sealed class ScrollStitcher
         return votes;
     }
 
-    private static double Agreement(ulong[] previous, ulong[] current, int offset)
+    private static double Agreement(ulong[] previous, ulong[] current, int height, int offset)
     {
         var startPrevious = Math.Max(0, offset);
         var startCurrent = Math.Max(0, -offset);
-        var overlap = previous.Length - Math.Abs(offset);
+        var overlap = height - Math.Abs(offset);
         var matching = 0;
         for (var row = 0; row < overlap; row++)
             if (previous[startPrevious + row] == current[startCurrent + row])

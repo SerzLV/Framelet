@@ -3,6 +3,19 @@ Set-StrictMode -Version Latest
 
 $repository = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).ProviderPath
 $project = Join-Path $repository 'Framelet.csproj'
+[xml]$projectXml = Get-Content -LiteralPath $project -Raw
+[xml]$manifest = Get-Content -LiteralPath (Join-Path $repository 'app.manifest') -Raw
+$versionNode = $projectXml.SelectSingleNode('/Project/PropertyGroup/Version')
+$identity = $manifest.DocumentElement.SelectSingleNode("*[local-name() = 'assemblyIdentity']")
+if (!$versionNode -or !$identity) { throw 'Release version must be declared in Framelet.csproj and app.manifest.' }
+
+$version = $versionNode.InnerText.Trim()
+$expectedManifestVersion = ($version -split '[-+]', 2)[0] + '.0'
+$manifestVersion = $identity.GetAttribute('version')
+if ($manifestVersion -ne $expectedManifestVersion) {
+    throw "Version $version in Framelet.csproj requires assemblyIdentity version $expectedManifestVersion in app.manifest (found '$manifestVersion')."
+}
+
 $output = Join-Path $repository 'publish'
 $intermediate = (New-Item -Path (Join-Path $repository 'obj') -ItemType Directory -Force).FullName
 
