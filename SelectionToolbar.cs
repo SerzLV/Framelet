@@ -30,6 +30,7 @@ internal sealed class SelectionToolbar : Window
     private readonly Button _delete;
     private readonly Button _frame;
     private readonly TextBlock _status = new() { Visibility = Visibility.Collapsed, FontSize = 11, TextWrapping = TextWrapping.Wrap };
+    private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(3.5) };
     private bool _syncing;
     private Drawing.Rectangle _selection;
 
@@ -147,6 +148,8 @@ internal sealed class SelectionToolbar : Window
         };
         SizeChanged += (_, _) => Dispatcher.InvokeAsync(Reposition, DispatcherPriority.Loaded);
         DpiChanged += (_, _) => Dispatcher.InvokeAsync(Reposition, DispatcherPriority.Loaded);
+        _statusTimer.Tick += (_, _) => SetStatus(null);
+        Closed += (_, _) => _statusTimer.Stop();
 
         void AddTool(EditorTool tool, string icon, string label) =>
             _tools.Add(tool, AddButton(tools, label, icon, () => ToolRequested?.Invoke(tool)));
@@ -202,10 +205,13 @@ internal sealed class SelectionToolbar : Window
         finally { _syncing = false; }
     }
 
-    internal void SetStatus(string? message)
+    internal void SetStatus(string? message, bool temporary = true)
     {
+        _statusTimer.Stop();
         _status.Text = message;
         _status.Visibility = string.IsNullOrWhiteSpace(message) ? Visibility.Collapsed : Visibility.Visible;
+        if (temporary && _status.Visibility == Visibility.Visible)
+            _statusTimer.Start();
         Reposition();
     }
 

@@ -22,6 +22,7 @@ public partial class MainWindow
 
     private async Task OpenOcrAsync()
     {
+        EditorImage.CommitTextInput();
         OcrPanel.Visibility = Visibility.Visible;
         OcrImageModeToggle.IsChecked = true;
         SetSelected(OcrButton, true, accentText: true);

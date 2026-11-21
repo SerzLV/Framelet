@@ -114,6 +114,7 @@
     <sys:String x:Key="Ui.DeleteConfirm">Очистить список и журналы правок? PNG останутся в папках.</sys:String>
     <sys:String x:Key="Ui.InterfaceLanguage">Язык интерфейса</sys:String>
     <sys:String x:Key="Ui.AnnotationText">Текст на снимке</sys:String>
+    <sys:String x:Key="Ui.AnnotationNewLine">Shift+Enter — новая строка</sys:String>
     <sys:String x:Key="Ui.Add">Добавить</sys:String>
     <sys:String x:Key="Ui.PinnedTitle">Framelet · Закреплённый снимок</sys:String>
     <sys:String x:Key="Ui.ClosePin">Закрыть снимок</sys:String>

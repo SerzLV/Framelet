@@ -22,7 +22,7 @@ public enum EditorTool
     Hand
 }
 
-public sealed class EditorSurface : FrameworkElement
+public sealed partial class EditorSurface : FrameworkElement
 {
     private static readonly Typeface LabelTypeface = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
     private static readonly Brush RedactionBrush = (Brush)new SolidColorBrush(Color.FromRgb(16, 19, 24)).GetAsFrozen();
@@ -47,16 +47,21 @@ public sealed class EditorSurface : FrameworkElement
         Cursor = Cursors.Cross;
         ClipToBounds = true;
         RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+        IsVisibleChanged += (_, _) =>
+        {
+            if (!IsVisible)
+                CommitTextInput();
+        };
     }
 
     internal event Action? Changed;
     internal event Action? SelectionChanged;
-    internal Func<string?, string?>? RequestText { get; set; }
     internal EditorTool Tool
     {
         get => _tool;
         set
         {
+            CommitTextInput();
             CompleteStrokeAdjustment();
             CancelDraft();
             var oldTool = _tool;
@@ -121,6 +126,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal void SetInk(Color color)
     {
+        CommitTextInput();
         CompleteStrokeAdjustment();
         Ink = color;
         if (CanChangeAppearance && SelectedMark is { } mark && mark.Brush.Color != color)
@@ -129,6 +135,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal void SetStrokeWidth(double width)
     {
+        CommitTextInput();
         StrokeWidth = width;
         if (!CanChangeAppearance || SelectedMark is not { } mark || mark.Size == width)
             return;
@@ -145,6 +152,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal void StartStrokeAdjustment()
     {
+        CommitTextInput();
         if (CanChangeAppearance && SelectedMark is { } mark)
         {
             _strokeEditBefore = mark;
@@ -182,6 +190,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal void Reset(BitmapSource image, EditJournal? journal = null)
     {
+        FinishTextInput(save: false);
         CancelDraft();
         _image = image;
         _crop = journal?.Crop;
@@ -203,6 +212,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal void Clear()
     {
+        FinishTextInput(save: false);
         CancelDraft();
         _image = null;
         _crop = null;
@@ -222,6 +232,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal void Undo()
     {
+        CommitTextInput();
         CompleteStrokeAdjustment();
         CancelDraft();
         if (!_undo.TryPop(out var edit))
@@ -233,6 +244,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal void Redo()
     {
+        CommitTextInput();
         CompleteStrokeAdjustment();
         CancelDraft();
         if (!_redo.TryPop(out var edit))
@@ -244,6 +256,7 @@ public sealed class EditorSurface : FrameworkElement
 
     internal bool DeleteSelection()
     {
+        CommitTextInput();
         CompleteStrokeAdjustment();
         CancelDraft();
         if (SelectedMark is not { } mark)
@@ -360,6 +373,7 @@ public sealed class EditorSurface : FrameworkElement
             return;
 
         Focus();
+        CommitTextInput();
         CompleteStrokeAdjustment();
         var start = ImagePoint(e.GetPosition(this));
         if (Tool == EditorTool.Select)
@@ -384,9 +398,7 @@ public sealed class EditorSurface : FrameworkElement
         switch (Tool)
         {
             case EditorTool.Text:
-                var text = RequestText?.Invoke(null);
-                if (!string.IsNullOrWhiteSpace(text))
-                    Add(mark with { Label = text.Trim() });
+                BeginTextInput(mark);
                 break;
             case EditorTool.Number:
                 var number = _marks.Count(entry => entry.Tool == EditorTool.Number) + 1;
@@ -406,21 +418,6 @@ public sealed class EditorSurface : FrameworkElement
                 break;
         }
         e.Handled = true;
-    }
-
-    internal bool EditSelectedText()
-    {
-        if (SelectedMark is not { Tool: EditorTool.Text } mark)
-            return false;
-
-        CompleteStrokeAdjustment();
-        var index = _selectedIndex;
-        var before = _marks[index];
-        var text = RequestText?.Invoke(mark.Label)?.Trim();
-        if (!string.IsNullOrEmpty(text) && text != before.Label
-            && index < _marks.Count && ReferenceEquals(_marks[index], before))
-            Commit(new Edit(index, before, before with { Label = text }));
-        return true;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -481,10 +478,11 @@ public sealed class EditorSurface : FrameworkElement
     {
         DrawBase(drawing, image, _crop);
         for (var index = 0; index < _marks.Count; index++)
-            DrawMark(drawing, EditingMark && index == _selectedIndex ? _draft! : _marks[index]);
+            if (index != _textInput?.Index)
+                DrawMark(drawing, EditingMark && index == _selectedIndex ? _draft! : _marks[index]);
         if (_draft is not null && !EditingMark)
             DrawMark(drawing, _draft);
-        if (SelectedMark is { } selected)
+        if (SelectedMark is { } selected && _textInput is null)
         {
             var mark = EditingMark ? _draft! : selected;
             if (HasEditablePoints(mark.Tool))
@@ -764,8 +762,7 @@ public sealed class EditorSurface : FrameworkElement
                 drawing.Pop();
                 break;
             case EditorTool.Text:
-                var label = FormatLabel(mark.Label!, Math.Max(14, mark.Size * 5), mark.Brush);
-                drawing.DrawGeometry(mark.Brush, MakePen(Brushes.Black, 1.5), label.BuildGeometry(start));
+                DrawAnnotationText(drawing, mark, start);
                 break;
             case EditorTool.Number:
                 DrawNumber(drawing, mark, start);

@@ -18,6 +18,7 @@ public partial class MainWindow
 
         CloseOcr();
         StopPanning();
+        EditorImage.CommitTextInput();
         EditorImage.CompleteStrokeAdjustment();
         EditorImage.CancelDraft();
         EditorImage.DeselectAnnotation();

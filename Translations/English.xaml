@@ -114,6 +114,7 @@
     <sys:String x:Key="Ui.DeleteConfirm">Clear the list and its edit history? Saved PNGs stay in your folders.</sys:String>
     <sys:String x:Key="Ui.InterfaceLanguage">Interface language</sys:String>
     <sys:String x:Key="Ui.AnnotationText">Text on screenshot</sys:String>
+    <sys:String x:Key="Ui.AnnotationNewLine">Shift+Enter to start a new line</sys:String>
     <sys:String x:Key="Ui.Add">Add</sys:String>
     <sys:String x:Key="Ui.PinnedTitle">Framelet · Pinned screenshot</sys:String>
     <sys:String x:Key="Ui.ClosePin">Close screenshot</sys:String>

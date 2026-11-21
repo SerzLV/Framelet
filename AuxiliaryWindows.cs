@@ -101,56 +101,6 @@ internal static class AuxiliaryWindows
         }
     }
 
-    internal static string? AskForText(Window owner, string? currentText = null)
-    {
-        var window = new Window
-        {
-            Title = UiText.Get("AnnotationText"),
-            Owner = owner,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            ShowInTaskbar = false,
-            ResizeMode = ResizeMode.NoResize,
-            Width = 428,
-            SizeToContent = SizeToContent.Height
-        };
-        var layout = new StackPanel { Margin = new Thickness(18) };
-        var field = new TextBox
-        {
-            MinHeight = 87,
-            Text = currentText ?? "",
-            AcceptsReturn = true,
-            TextWrapping = TextWrapping.Wrap,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            MaxLength = 450,
-            Margin = new Thickness(0, 0, 0, 13)
-        };
-        System.Windows.Automation.AutomationProperties.SetName(field, UiText.Get("AnnotationText"));
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        var cancel = new Button { Content = UiText.Get("Cancel"), IsCancel = true, Margin = new Thickness(0, 0, 7, 0) };
-        var apply = new Button
-        {
-            Content = UiText.Get(currentText is null ? "Add" : "Save"),
-            Style = (Style)Application.Current.FindResource("PrimaryButton"),
-            ToolTip = "Ctrl + Enter"
-        };
-        apply.Click += (_, _) => window.DialogResult = true;
-        window.PreviewKeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control)
-            {
-                e.Handled = true;
-                window.DialogResult = true;
-            }
-        };
-        buttons.Children.Add(cancel);
-        buttons.Children.Add(apply);
-        layout.Children.Add(field);
-        layout.Children.Add(buttons);
-        window.Content = layout;
-        window.Loaded += (_, _) => field.Focus();
-        return window.ShowDialog() == true ? field.Text : null;
-    }
-
     internal static Window ShowPin(Window owner, BitmapSource image, Drawing.Point? origin = null)
     {
         if (origin is { } point)

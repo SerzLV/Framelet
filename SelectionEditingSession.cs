@@ -95,7 +95,7 @@ internal sealed class SelectionEditingSession : IDisposable
 
     internal void HandleKey(KeyEventArgs e)
     {
-        if (e.Handled || _modal)
+        if (e.Handled || _modal || Editor?.IsEditingText == true)
             return;
         if (e.Key == Key.Escape)
         {
@@ -107,6 +107,11 @@ internal sealed class SelectionEditingSession : IDisposable
             return;
 
         var modifiers = Keyboard.Modifiers;
+        if (modifiers == ModifierKeys.None && e.Key == Key.F2)
+        {
+            e.Handled = !e.IsRepeat && Editor?.EditSelectedText() == true;
+            return;
+        }
         if (modifiers == ModifierKeys.Control)
         {
             switch (e.Key)
@@ -176,7 +181,6 @@ internal sealed class SelectionEditingSession : IDisposable
         editor.SetCurveHeads(_heads);
         editor.Changed += EditorChanged;
         editor.SelectionChanged += RefreshTools;
-        editor.RequestText = AskForText;
         canvas.PreviewKeyDown += (_, e) => HandleKey(e);
         canvas.Closed += (_, _) =>
         {
@@ -187,20 +191,6 @@ internal sealed class SelectionEditingSession : IDisposable
             }
         };
         return canvas;
-    }
-
-    private string? AskForText(string? initial)
-    {
-        if (_canvas is not { } canvas)
-            return null;
-        _modal = true;
-        SyncSelection();
-        try { return AuxiliaryWindows.AskForText(canvas, initial); }
-        finally
-        {
-            _modal = false;
-            SyncSelection();
-        }
     }
 
     private void SelectTool(EditorTool tool) => Run(async region =>
@@ -263,7 +253,7 @@ internal sealed class SelectionEditingSession : IDisposable
 
     private void Recognize(bool redact) => Run(async region =>
     {
-        _toolbar.SetStatus(UiText.Get("OcrWorking"));
+        _toolbar.SetStatus(UiText.Get("OcrWorking"), temporary: false);
         var editor = Editor;
         var image = editor is null ? await CropAsync(region) : await editor.ExportForOcrAsync();
         if (_disposed)
@@ -336,6 +326,7 @@ internal sealed class SelectionEditingSession : IDisposable
     {
         if (_disposed || _busy || _selection.IsDragging || _selection.Selection is not { } region)
             return;
+        Editor?.CommitTextInput();
         _busy = true;
         _selection.SetLocked(true);
         if (Editor is { } editor)

@@ -46,7 +46,6 @@ public partial class MainWindow : Window
         HistoryItems.ItemsSource = _historyCards;
         InitializeCaptureShortcuts();
         Language = XmlLanguage.GetLanguage(UiText.Culture.Name);
-        EditorImage.RequestText = text => AuxiliaryWindows.AskForText(this, text);
         EditorImage.Changed += EditorChanged;
         EditorImage.SelectionChanged += UpdateSelectionOptions;
         CropLayer.SelectionChanged += UpdateCropSelection;
@@ -165,6 +164,7 @@ public partial class MainWindow : Window
     private async Task<bool> SaveBeforeLeavingAsync()
     {
         EndCrop(returnFocus: false);
+        EditorImage.CommitTextInput();
         var wasEnabled = EditorView.IsEnabled;
         EditorImage.CancelDraft();
         EditorView.IsEnabled = false;
@@ -226,6 +226,7 @@ public partial class MainWindow : Window
     {
         return RunOperation(async () =>
         {
+            EditorImage.CommitTextInput();
             EditorImage.CompleteStrokeAdjustment();
             var revision = _revision;
             var image = await EditorImage.ExportAsync();
@@ -256,6 +257,7 @@ public partial class MainWindow : Window
     {
         return RunOperation(async () =>
         {
+            EditorImage.CommitTextInput();
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = UiText.Get("PngFilter"),
@@ -280,6 +282,7 @@ public partial class MainWindow : Window
     {
         await RunOperation(async () =>
         {
+            EditorImage.CommitTextInput();
             EditorImage.CompleteStrokeAdjustment();
             var revision = _revision;
             var image = await EditorImage.ExportAsync();
@@ -582,6 +585,9 @@ public partial class MainWindow : Window
             return;
         }
         if (IsCropping && HandleCropKey(e))
+            return;
+
+        if (EditorImage.IsEditingText)
             return;
 
         if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V
