@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
 using System.Windows;
@@ -8,10 +9,31 @@ using System.Windows.Threading;
 
 namespace Framelet;
 
+internal enum HistoryCardSelection { Inactive, Unselected, Selected }
+
+internal sealed class HistoryCard(HistoryItem item, HistoryCardSelection selection) : INotifyPropertyChanged
+{
+    private HistoryCardSelection _selection = selection;
+    public HistoryItem Item { get; } = item;
+    public HistoryCardSelection Selection
+    {
+        get => _selection;
+        internal set
+        {
+            if (_selection == value)
+                return;
+            _selection = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Selection)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
 public partial class MainWindow
 {
     private const int ThumbnailCacheSize = 96;
-    private readonly ObservableCollection<HistoryItem> _historyCards = [];
+    private readonly ObservableCollection<HistoryCard> _historyCards = [];
     private readonly Dictionary<HistoryItem, LinkedListNode<(HistoryItem Item, BitmapSource Image)>> _historyThumbnails
         = new(ReferenceEqualityComparer.Instance);
     private readonly LinkedList<(HistoryItem Item, BitmapSource Image)> _thumbnailOrder = [];
@@ -54,8 +76,8 @@ public partial class MainWindow
         if (!ReferenceEquals(_historyCardSource, _filteredHistory))
         {
             _historyCardSource = _filteredHistory;
-            if (_historyCards.Count == count && _historyCards.Select((entry, index) =>
-                    ReferenceEquals(entry, _filteredHistory[start + index])).All(match => match))
+            if (_historyCards.Count == count && _historyCards.Select((card, index) =>
+                    ReferenceEquals(card.Item, _filteredHistory[start + index])).All(match => match))
             {
                 _historyCardStart = start;
                 return;
@@ -75,10 +97,12 @@ public partial class MainWindow
         if (_historyCards.Count == 0)
             _historyCardStart = start;
         while (_historyCardStart > start)
-            _historyCards.Insert(0, _filteredHistory[--_historyCardStart]);
+            _historyCards.Insert(0, CreateHistoryCard(_filteredHistory[--_historyCardStart]));
         for (var index = _historyCardStart + _historyCards.Count; index < end; index++)
-            _historyCards.Add(_filteredHistory[index]);
+            _historyCards.Add(CreateHistoryCard(_filteredHistory[index]));
     }
+
+    private HistoryCard CreateHistoryCard(HistoryItem item) => new(item, GetHistoryCardSelection(item));
 
     private async void HistoryThumbnail_Loaded(object sender, RoutedEventArgs e)
     {

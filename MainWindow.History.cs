@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,10 +12,12 @@ public partial class MainWindow
 {
     private HistoryItem? _renameTarget;
     private Action<bool>? _historyConfirmation;
+    private readonly HashSet<string> _selectedHistoryPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<HistoryItem, string> _historyText = new(ReferenceEqualityComparer.Instance);
     private HashSet<HistoryItem> _historyMembership = new(ReferenceEqualityComparer.Instance);
     private CancellationTokenSource? _historyIndexRequest;
     private bool _historyIndexUnavailable;
+    private bool IsSelectingHistory => HistorySelectionToggle.IsChecked == true;
 
     private void HomeScroll_Changed(object sender, ScrollChangedEventArgs e)
     {
@@ -47,21 +50,31 @@ public partial class MainWindow
 
     private async void History_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: HistoryItem item })
+        if (_busy || sender is not Button { DataContext: HistoryCard card })
+            return;
+
+        var item = card.Item;
+        if (IsSelectingHistory || Keyboard.Modifiers == ModifierKeys.Control)
         {
-            await RunOperation(async () =>
-            {
-                var document = await Task.Run(() => _history.OpenEditorDocument(item.FilePath));
-                var origin = item.FilePath == _lastCapturePath ? _lastCaptureOrigin : null;
-                OpenEditor(document.Image, item.FilePath, document.Journal, origin);
-                Report(UiText.Get("OpenedHistory"));
-            });
+            HistorySelectionToggle.IsChecked = true;
+            if (!_selectedHistoryPaths.Add(item.FilePath))
+                _selectedHistoryPaths.Remove(item.FilePath);
+            UpdateHistorySelection();
+            return;
         }
+
+        await RunOperation(async () =>
+        {
+            var document = await Task.Run(() => _history.OpenEditorDocument(item.FilePath));
+            var origin = item.FilePath == _lastCapturePath ? _lastCaptureOrigin : null;
+            OpenEditor(document.Image, item.FilePath, document.Journal, origin);
+            Report(UiText.Get("OpenedHistory"));
+        });
     }
 
     private async void CopyHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: HistoryItem item })
+        if (sender is MenuItem { DataContext: HistoryCard { Item: var item } })
         {
             await RunOperation(async () =>
             {
@@ -74,26 +87,89 @@ public partial class MainWindow
 
     private async void DeleteHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not MenuItem { DataContext: HistoryItem item })
+        if (sender is MenuItem { DataContext: HistoryCard { Item: var item } })
+            await DeleteHistoryItemsAsync([item], HistorySearch);
+    }
+
+    private void HistorySelectionToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsSelectingHistory)
+            _selectedHistoryPaths.Clear();
+        UpdateHistorySelection();
+    }
+
+    private void SelectAllHistory_Click(object sender, RoutedEventArgs e)
+    {
+        _selectedHistoryPaths.UnionWith(_filteredHistory.Select(item => item.FilePath));
+        UpdateHistorySelection();
+    }
+
+    private async void DeleteSelectedHistory_Click(object sender, RoutedEventArgs e) => await DeleteSelectedHistoryAsync();
+
+    private Task DeleteSelectedHistoryAsync() => DeleteHistoryItemsAsync(
+        _filteredHistory.Where(item => _selectedHistoryPaths.Contains(item.FilePath)).ToArray(), HistorySelectionToggle);
+
+    private async Task DeleteHistoryItemsAsync(IReadOnlyList<HistoryItem> items, UIElement restoreFocus)
+    {
+        if (items.Count == 0)
             return;
-        if (!await AskHistoryConfirmationAsync("Delete", UiText.Format("RecycleConfirm", item.DisplayName),
-                "RecycleAction", HistorySearch))
+
+        var message = items.Count == 1 ? UiText.Format("RecycleConfirm", items[0].DisplayName)
+            : UiText.Format("RecycleMultipleConfirm", items.Count);
+        if (!await AskHistoryConfirmationAsync("Delete", message, "RecycleAction", restoreFocus))
             return;
 
         await RunOperation(async () =>
         {
+            var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var failed = false;
             try
             {
-                await Task.Run(() => _history.Delete(item.FilePath));
+                await Task.Run(() =>
+                {
+                    foreach (var item in items)
+                    {
+                        try
+                        {
+                            _history.Delete(item.FilePath);
+                            removed.Add(item.FilePath);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ExternalException)
+                        {
+                            Trace.WriteLine(error);
+                            failed = true;
+                        }
+                    }
+                });
             }
-            catch (OperationCanceledException)
+            finally
             {
-                return;
+                if (removed.Count > 0)
+                    RefreshHistory(_recent.Where(entry => !removed.Contains(entry.FilePath)).ToArray());
             }
-            RefreshHistory(_recent.Where(entry => !string.Equals(entry.FilePath, item.FilePath, StringComparison.OrdinalIgnoreCase))
-                .ToArray());
-            Report(UiText.Get("HistoryItemDeleted"));
+
+            if (failed || (removed.Count > 0 && removed.Count < items.Count))
+                Report(UiText.Format("HistoryDeleteIncomplete", removed.Count, items.Count), true);
+            else if (removed.Count > 0)
+                Report(removed.Count == 1 ? UiText.Get("HistoryItemDeleted") : UiText.Format("HistoryItemsDeleted", removed.Count));
         });
+    }
+
+    private HistoryCardSelection GetHistoryCardSelection(HistoryItem item) => !IsSelectingHistory ? HistoryCardSelection.Inactive
+        : _selectedHistoryPaths.Contains(item.FilePath) ? HistoryCardSelection.Selected : HistoryCardSelection.Unselected;
+
+    private void UpdateHistorySelection()
+    {
+        foreach (var card in _historyCards)
+            card.Selection = GetHistoryCardSelection(card.Item);
+        HistorySelectionActions.Visibility = IsSelectingHistory ? Visibility.Visible : Visibility.Collapsed;
+        HistorySelectedCount.Text = UiText.Format("HistorySelectedCount", _selectedHistoryPaths.Count);
+        SelectAllHistoryButton.IsEnabled = _filteredHistory.Count > _selectedHistoryPaths.Count;
+        DeleteSelectedHistoryButton.IsEnabled = _selectedHistoryPaths.Count > 0;
     }
 
     private Task<bool> AskHistoryConfirmationAsync(string title, string message, string action, UIElement restoreFocus)
@@ -133,7 +209,7 @@ public partial class MainWindow
 
     private void RenameHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || sender is not MenuItem { DataContext: HistoryItem item })
+        if (_busy || sender is not MenuItem { DataContext: HistoryCard { Item: var item } })
             return;
 
         _renameTarget = item;
@@ -221,6 +297,9 @@ public partial class MainWindow
             _historyText.Remove(entry);
         RemoveOldThumbnails();
         ClearHistoryButton.IsEnabled = items.Count > 0;
+        HistorySelectionToggle.IsEnabled = items.Count > 0;
+        if (items.Count == 0)
+            HistorySelectionToggle.IsChecked = false;
         FilterHistory();
         UpdateHistoryIndex();
     }
@@ -236,6 +315,9 @@ public partial class MainWindow
                 || (_historyText.TryGetValue(entry, out var text) && text.Contains(contentQuery, StringComparison.OrdinalIgnoreCase))).ToArray()
             : _recent;
         _filteredHistory = visible;
+        if (_selectedHistoryPaths.Count > 0)
+            _selectedHistoryPaths.IntersectWith(visible.Select(item => item.FilePath));
+        UpdateHistorySelection();
         RequestHistoryLayout();
         HistorySearchClear.Visibility = HistorySearch.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         EmptyHistory.Visibility = visible.Count == 0 ? Visibility.Visible : Visibility.Collapsed;

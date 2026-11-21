@@ -587,6 +587,26 @@ public partial class MainWindow : Window
         if (IsCropping && HandleCropKey(e))
             return;
 
+        if (IsSelectingHistory && HomeView.IsVisible && HomeView.IsEnabled && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            if (e.Key == Key.Escape && (!HistorySearch.IsKeyboardFocusWithin || HistorySearch.Text.Length == 0))
+            {
+                e.Handled = true;
+                HistorySelectionToggle.IsChecked = false;
+                _selectedHistoryPaths.Clear();
+                UpdateHistorySelection();
+                HistorySelectionToggle.Focus();
+                return;
+            }
+            if (e.Key == Key.Delete && !HistorySearch.IsKeyboardFocusWithin)
+            {
+                e.Handled = true;
+                if (!e.IsRepeat)
+                    await DeleteSelectedHistoryAsync();
+                return;
+            }
+        }
+
         if (EditorImage.IsEditingText)
             return;
 
