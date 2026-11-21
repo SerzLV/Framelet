@@ -137,7 +137,9 @@
     <sys:String x:Key="Ui.HistoryTooltipFormat">MMM d, yyyy HH:mm</sys:String>
     <sys:String x:Key="Ui.SelectionTitle">Framelet · Region selection</sys:String>
     <sys:String x:Key="Ui.SelectionPrompt">Drag a region or click a window   ·   Esc to cancel</sys:String>
-    <sys:String x:Key="Ui.SelectionAdjustPrompt">Drag corners to resize   ·   Arrows to move   ·   Enter or click inside to capture   ·   Esc to cancel</sys:String>
+    <sys:String x:Key="Ui.ClipboardSelectionAdjustPrompt">Enter, Ctrl+C or click inside to copy   ·   Drag corners to resize   ·   Arrows to move   ·   Esc to cancel</sys:String>
+    <sys:String x:Key="Ui.EditorSelectionAdjustPrompt">Enter or click inside to edit   ·   Ctrl+C to copy   ·   Drag corners to resize   ·   Arrows to move   ·   Esc to cancel</sys:String>
+    <sys:String x:Key="Ui.ScrollSelectionAdjustPrompt">Enter or click inside to start   ·   Drag corners to resize   ·   Arrows to move   ·   Esc to cancel</sys:String>
     <sys:String x:Key="Ui.TrayOpen">Open Framelet</sys:String>
     <sys:String x:Key="Ui.TrayExit">Quit</sys:String>
     <sys:String x:Key="Ui.HotkeysOff">Global shortcuts are off.</sys:String>

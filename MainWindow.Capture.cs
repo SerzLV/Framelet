@@ -239,9 +239,9 @@ public partial class MainWindow
     {
         return RunOperation(async () =>
         {
-            if (mode == CaptureMode.QuickClipboard)
+            if (mode is CaptureMode.QuickClipboard or CaptureMode.Delayed)
             {
-                await CaptureQuickToClipboardAsync();
+                await CaptureQuickToClipboardAsync(mode);
                 return;
             }
 
@@ -255,19 +255,15 @@ public partial class MainWindow
 
             try
             {
-                if (mode == CaptureMode.Delayed && !await AuxiliaryWindows.ShowCaptureCountdownAsync())
-                {
-                    ReportCaptureCanceled(returnOnCancel);
-                    return;
-                }
                 await Task.Delay(65);
                 Native.DwmFlush();
+                var selection = mode == CaptureMode.Region ? await SelectRegionAsync(mode) : null;
                 BitmapSource? image = mode switch
                 {
                     CaptureMode.Screen => await Task.Run(CaptureService.CaptureCurrentDisplay),
                     CaptureMode.Window => await Task.Run(() => CaptureService.CaptureWindow(previousWindow)),
                     CaptureMode.Scrolling => await CaptureScrollingAsync(),
-                    _ => (await SelectRegionAsync("SelectionPrompt"))?.Image
+                    _ => selection?.Snapshot.Image
                 };
 
                 if (image is null)
@@ -277,6 +273,15 @@ public partial class MainWindow
                 }
 
                 RecordCapture(image);
+                if (selection is { CopyToClipboard: true })
+                {
+                    await CopyImageToClipboardAsync(image);
+                    if (returnOnCancel)
+                        ShowWorkspace();
+                    Report(UiText.Get("ImageCopied"));
+                    await RememberClipboardCaptureAsync(image);
+                    return;
+                }
                 await OpenCapturedImageAsync(image, "CaptureReady");
             }
             catch
@@ -294,7 +299,7 @@ public partial class MainWindow
         Report(UiText.Get("CaptureCanceled"));
     }
 
-    private async Task CaptureQuickToClipboardAsync()
+    private async Task CaptureQuickToClipboardAsync(CaptureMode mode)
     {
         var wasVisible = IsVisible;
         var wasActive = IsActive;
@@ -302,9 +307,14 @@ public partial class MainWindow
         Hide();
         try
         {
+            if (mode == CaptureMode.Delayed && !await AuxiliaryWindows.ShowCaptureCountdownAsync())
+            {
+                Report(UiText.Get("CaptureCanceled"));
+                return;
+            }
             await Task.Delay(65);
             Native.DwmFlush();
-            image = (await SelectRegionAsync("QuickCapturePrompt"))?.Image;
+            image = (await SelectRegionAsync(mode))?.Snapshot.Image;
             if (image is null)
             {
                 Report(UiText.Get("CaptureCanceled"));
@@ -331,6 +341,11 @@ public partial class MainWindow
             }
         }
 
+        await RememberClipboardCaptureAsync(image);
+    }
+
+    private async Task RememberClipboardCaptureAsync(BitmapSource image)
+    {
         if (_preferences.KeepHistory)
         {
             var item = await Task.Run(() => _history.Put(_history.CreateEntryPath(), image));
@@ -345,8 +360,7 @@ public partial class MainWindow
 
     private async Task<BitmapSource?> CaptureScrollingAsync()
     {
-        var selection = await SelectRegionAsync("ScrollSelectionPrompt", singleDisplay: true);
-        if (selection is null)
+        if (await SelectRegionAsync(CaptureMode.Scrolling) is not { Snapshot: var selection })
             return null;
 
         var scrollTarget = new ScrollWheelTarget(selection.Bounds);
@@ -364,18 +378,26 @@ public partial class MainWindow
         }
     }
 
-    private async Task<ScreenSnapshot?> SelectRegionAsync(string promptKey, bool singleDisplay = false)
+    private async Task<(ScreenSnapshot Snapshot, bool CopyToClipboard)?> SelectRegionAsync(CaptureMode mode)
     {
+        var (promptKey, adjustPromptKey) = mode switch
+        {
+            CaptureMode.Scrolling => ("ScrollSelectionPrompt", "ScrollSelectionAdjustPrompt"),
+            CaptureMode.Region => ("SelectionPrompt", "EditorSelectionAdjustPrompt"),
+            _ => ("QuickCapturePrompt", "ClipboardSelectionAdjustPrompt")
+        };
+        var singleDisplay = mode == CaptureMode.Scrolling;
         var (screens, candidates) = await Task.Run(() => (CaptureService.CaptureDisplays(),
             singleDisplay ? [] : CaptureService.GetVisibleWindowBounds()));
         var session = new RegionSelection(screens.Select(screen => screen.Bounds).ToArray(), candidates, singleDisplay);
         session.MovePointer(CaptureService.CursorPosition);
-        var completion = new TaskCompletionSource<Drawing.Rectangle?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var windows = screens.Select((screen, index) => new SelectionWindow(screen, index == 0, promptKey, session,
-            region => completion.TrySetResult(region),
+        var completion = new TaskCompletionSource<(Drawing.Rectangle Bounds, bool CopyToClipboard)?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var windows = screens.Select((screen, index) => new SelectionWindow(screen, index == 0, promptKey, adjustPromptKey, session,
+            region => completion.TrySetResult((region, false)),
+            singleDisplay ? null : region => completion.TrySetResult((region, true)),
             () => completion.TrySetResult(null))).ToArray();
 
-        Drawing.Rectangle? selection;
+        (Drawing.Rectangle Bounds, bool CopyToClipboard)? selection;
         try
         {
             foreach (var window in windows.Reverse())
@@ -393,8 +415,9 @@ public partial class MainWindow
                     window.Close();
             }
         }
-        return selection is { } bounds
-            ? await Task.Run(() => new ScreenSnapshot(bounds, CaptureService.CropDisplays(screens, bounds)))
+        return selection is { } captured
+            ? (await Task.Run(() => new ScreenSnapshot(captured.Bounds, CaptureService.CropDisplays(screens, captured.Bounds))),
+                captured.CopyToClipboard)
             : null;
     }
 }

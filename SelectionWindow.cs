@@ -9,16 +9,18 @@ namespace Framelet;
 
 internal sealed class SelectionWindow : Window
 {
-    internal SelectionWindow(ScreenSnapshot snapshot, bool activate, string promptKey,
-        RegionSelection session, Action<Drawing.Rectangle> selected, Action canceled)
-        : this(snapshot, activate, new SelectionSurface(snapshot, UiText.Get(promptKey), canceled, session, selected), canceled)
+    internal SelectionWindow(ScreenSnapshot snapshot, bool activate, string promptKey, string adjustPromptKey,
+        RegionSelection session, Action<Drawing.Rectangle> selected, Action<Drawing.Rectangle>? copy, Action canceled)
+        : this(snapshot, activate, new SelectionSurface(snapshot, UiText.Get(promptKey), UiText.Get(adjustPromptKey),
+            canceled, session, selected), canceled)
     {
         PreviewKeyDown += (_, e) =>
         {
             if (session.IsDragging || session.Selection is not { } region)
                 return;
 
-            var step = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? 10 : 1;
+            var modifiers = Keyboard.Modifiers;
+            var step = modifiers.HasFlag(ModifierKeys.Shift) ? 10 : 1;
             var delta = e.Key switch
             {
                 Key.Left => new Drawing.Point(-step, 0),
@@ -29,6 +31,8 @@ internal sealed class SelectionWindow : Window
             };
             if (e.Key == Key.Enter)
                 selected(region);
+            else if (e.Key == Key.C && modifiers == ModifierKeys.Control && copy is not null)
+                copy(region);
             else if (!delta.IsEmpty)
                 session.Nudge(delta.X, delta.Y);
             else
@@ -87,6 +91,7 @@ internal sealed class SelectionSurface : FrameworkElement
     private static readonly Pen CornerPen = FrozenPen(Ink, 1);
     private readonly ScreenSnapshot _snapshot;
     private readonly string _prompt;
+    private readonly string? _adjustPrompt;
     private readonly Action _canceled;
     private readonly RegionSelection? _session;
     private readonly Action<Drawing.Rectangle>? _selected;
@@ -94,11 +99,12 @@ internal sealed class SelectionSurface : FrameworkElement
     private readonly Int32Rect? _extension;
     private Point? _tailPointer;
 
-    internal SelectionSurface(ScreenSnapshot snapshot, string prompt, Action canceled,
+    internal SelectionSurface(ScreenSnapshot snapshot, string prompt, string adjustPrompt, Action canceled,
         RegionSelection session, Action<Drawing.Rectangle> selected) : this(snapshot, prompt, canceled)
     {
         _session = session;
         _selected = selected;
+        _adjustPrompt = adjustPrompt;
         Loaded += (_, _) =>
         {
             session.Changed += UpdateRegionVisual;
@@ -256,7 +262,7 @@ internal sealed class SelectionSurface : FrameworkElement
             drawing.DrawLine(CrosshairPen, new Point(position.X, Math.Min(bounds.Height, position.Y + 9)), new Point(position.X, bounds.Height));
             DrawMagnifier(drawing, position);
         }
-        DrawPrompt(drawing, bounds, session.Selection is null ? _prompt : UiText.Get("SelectionAdjustPrompt"));
+        DrawPrompt(drawing, bounds, session.Selection is null ? _prompt : _adjustPrompt ?? _prompt);
     }
 
     private void UpdateRegionVisual()
