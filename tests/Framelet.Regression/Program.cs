@@ -21,6 +21,7 @@ internal static partial class Program
             OcrDistinguishesYearsFromPhones();
             RegionSelectionUsesDesktopCoordinates();
             RegionSelectionResizesFromCorners();
+            WindowHighlightSkipsUtilityWindows();
             RegionCaptureComposesMonitors();
             ExportPreservesLargeImage();
             ScrollStitchingPreservesContent();

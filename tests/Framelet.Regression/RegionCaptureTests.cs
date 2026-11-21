@@ -1,3 +1,5 @@
+using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Framelet;
@@ -5,6 +7,43 @@ using Drawing = System.Drawing;
 
 internal static partial class Program
 {
+    private static void WindowHighlightSkipsUtilityWindows()
+    {
+        const int toolWindow = 0x00000080, noActivate = 0x08000000;
+        const uint noActivateOnShow = 0x0010 | 0x0040;
+        var left = (int)(SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth) + 256;
+        using var standard = CreateWindow(0, 0);
+        using var tool = CreateWindow(1, toolWindow);
+        using var inactive = CreateWindow(2, noActivate);
+        using var overlay = CreateWindow(3, toolWindow | noActivate);
+
+        var candidates = CaptureService.GetVisibleWindowBounds();
+        Require(candidates.Contains(BoundsOf(standard)), "A regular window remains a highlight target");
+        Require(!candidates.Contains(BoundsOf(tool)) && !candidates.Contains(BoundsOf(inactive))
+            && !candidates.Contains(BoundsOf(overlay)), "A tool window, non-activating window, or overlay is skipped");
+
+        HwndSource CreateWindow(int index, int extendedStyle)
+        {
+            var x = left + index * 160;
+            var parameters = new HwndSourceParameters($"Framelet highlight test {index}", 120, 80)
+            {
+                WindowStyle = unchecked((int)0x80000000),
+                ExtendedWindowStyle = extendedStyle,
+                PositionX = x
+            };
+            var source = new HwndSource(parameters);
+            Native.SetWindowPos(source.Handle, IntPtr.Zero, x, 0, 120, 80, noActivateOnShow);
+            return source;
+        }
+
+        static Drawing.Rectangle BoundsOf(HwndSource source)
+        {
+            if (!Native.GetWindowRect(source.Handle, out var rect))
+                throw new InvalidOperationException("Could not read the highlight test window bounds.");
+            return Drawing.Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        }
+    }
+
     private static void RegionSelectionUsesDesktopCoordinates()
     {
         var left = new Drawing.Rectangle(-1600, -200, 1600, 900);

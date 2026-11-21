@@ -61,11 +61,13 @@ internal static class CaptureService
 
     internal static IReadOnlyList<Drawing.Rectangle> GetVisibleWindowBounds()
     {
+        const int toolWindow = 0x00000080, noActivate = 0x08000000;
         var windows = new List<Drawing.Rectangle>();
         var shell = Native.GetShellWindow();
         Native.EnumWindows((window, _) =>
         {
             if (window != shell && Native.IsWindowVisible(window) && !Native.IsIconic(window)
+                && (Native.GetExtendedWindowStyle(window) & (toolWindow | noActivate)) == 0
                 && Native.GetWindowTextLength(window) > 0
                 && (Native.GetDwmWindowState(window, 14, out var cloaked, sizeof(int)) != 0 || cloaked == 0)
                 && TryGetWindowBounds(window, out var bounds) && bounds.Width >= 3 && bounds.Height >= 3)
@@ -179,6 +181,11 @@ internal static partial class Native
 
     [LibraryImport("user32.dll", EntryPoint = "GetWindowTextLengthW")]
     internal static partial int GetWindowTextLength(IntPtr window);
+
+    internal static int GetExtendedWindowStyle(IntPtr window) => GetWindowLong(window, -20);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static partial int GetWindowLong(IntPtr window, int index);
 
     [LibraryImport("user32.dll")]
     internal static partial IntPtr GetShellWindow();
