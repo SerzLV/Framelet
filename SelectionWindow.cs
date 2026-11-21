@@ -152,7 +152,7 @@ internal sealed class SelectionSurface : FrameworkElement
         if (_session is { } session)
         {
             var point = CaptureService.CursorPosition;
-            session.Begin(point, session.CornerAt(point, ResizeHitRadius()));
+            session.Begin(point, session.CornerAt(point, ResizeHitRadius()), PhysicalDistance(RegionSelection.DragThresholdDips));
         }
         e.Handled = true;
     }
@@ -280,10 +280,12 @@ internal sealed class SelectionSurface : FrameworkElement
         InvalidateVisual();
     }
 
-    private Drawing.Size ResizeHitRadius()
+    private Drawing.Size ResizeHitRadius() => PhysicalDistance(9);
+
+    private Drawing.Size PhysicalDistance(int dips)
     {
         var dpi = VisualTreeHelper.GetDpi(this);
-        return new Drawing.Size((int)Math.Ceiling(9 * dpi.DpiScaleX), (int)Math.Ceiling(9 * dpi.DpiScaleY));
+        return new Drawing.Size((int)Math.Ceiling(dips * dpi.DpiScaleX), (int)Math.Ceiling(dips * dpi.DpiScaleY));
     }
 
     private void DrawCorners(DrawingContext drawing, Drawing.Rectangle region, RegionSelection session)

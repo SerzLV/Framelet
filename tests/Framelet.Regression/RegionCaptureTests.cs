@@ -31,6 +31,16 @@ internal static partial class Program
         Require(session.End(new Drawing.Point(5, 50)) == expected, "A second click inside confirms the adjusted selection");
 
         session.Begin(new Drawing.Point(5, 50));
+        session.MovePointer(new Drawing.Point(8, 53));
+        Require(session.Preview == expected && session.End(new Drawing.Point(8, 53)) == expected && session.Selection == expected,
+            "A confirming click with three pixels of pointer drift preserves the selected area");
+
+        var edge = new Drawing.Point(expected.Right - 1, 50);
+        session.Begin(edge);
+        Require(session.End(new Drawing.Point(edge.X + 3, edge.Y + 3)) == expected,
+            "A short release outside the frame confirms the area pressed at the edge");
+
+        session.Begin(new Drawing.Point(5, 50));
         session.MovePointer(new Drawing.Point(250, 200));
         Require(session.End(new Drawing.Point(5, 50)) is null && session.Selection == expected,
             "Returning a drag to its origin does not confirm the previous selection");
@@ -49,6 +59,19 @@ internal static partial class Program
         Require(scrolling.Selection == new Drawing.Rectangle(-90, -10, 90, 85), "Scrolling capture stays on its starting monitor");
         scrolling.Nudge(10, 0);
         Require(scrolling.Selection?.Right == 0, "Keyboard adjustment also respects scrolling capture's monitor bounds");
+
+        var scaled = new RegionSelection([right], [], singleDisplay: false);
+        var origin = new Drawing.Point(50, 50);
+        var threshold = new Drawing.Size(9, 9);
+        var smallMove = new Drawing.Point(58, 56);
+        scaled.Begin(origin, dragThreshold: threshold);
+        scaled.MovePointer(smallMove);
+        Require(scaled.Preview is null && scaled.End(smallMove) is null && scaled.Selection is null,
+            "Pointer movement below the display-scaled drag threshold never creates a draft");
+        scaled.Begin(origin, dragThreshold: threshold);
+        scaled.End(new Drawing.Point(59, 53));
+        Require(scaled.Selection == new Drawing.Rectangle(50, 50, 9, 3),
+            "A deliberate narrow selection crossing the drag threshold still works without an intermediate move event");
     }
 
     private static void RegionSelectionResizesFromCorners()

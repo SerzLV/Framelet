@@ -12,6 +12,7 @@ internal enum SelectionCorner
 
 internal sealed class RegionSelection
 {
+    internal const int DragThresholdDips = 6;
     private const int MinimumSize = 3;
     private static readonly SelectionCorner[] CornerOrder = Enum.GetValues<SelectionCorner>();
     private readonly IReadOnlyList<Drawing.Rectangle> _displays;
@@ -21,7 +22,8 @@ internal sealed class RegionSelection
     private Drawing.Rectangle _limits;
     private Drawing.Rectangle _dragLimits;
     private Drawing.Point? _anchor;
-    private bool _dragMoved;
+    private Drawing.Size _dragThreshold;
+    private bool _dragStarted;
 
     internal RegionSelection(IReadOnlyList<Drawing.Rectangle> displays, IReadOnlyList<Drawing.Rectangle> windows,
         bool singleDisplay)
@@ -46,6 +48,9 @@ internal sealed class RegionSelection
         {
             if (_anchor is { } start)
             {
+                if (ResizeCorner is null && !_dragStarted)
+                    return Selection ?? WindowAt(start);
+
                 var draft = Draft(start, Pointer);
                 return IsSelectable(draft) ? draft : Selection;
             }
@@ -59,11 +64,11 @@ internal sealed class RegionSelection
             return;
         Pointer = point;
         if (_anchor is { } start && IsDragDistance(start, point))
-            _dragMoved = true;
+            _dragStarted = true;
         Changed?.Invoke();
     }
 
-    internal void Begin(Drawing.Point point, SelectionCorner? corner = null)
+    internal void Begin(Drawing.Point point, SelectionCorner? corner = null, Drawing.Size? dragThreshold = null)
     {
         var display = _displays.FirstOrDefault(bounds => bounds.Contains(point));
         if (display.IsEmpty)
@@ -72,7 +77,8 @@ internal sealed class RegionSelection
         ResizeCorner = Selection is not null ? corner : null;
         _dragLimits = ResizeCorner.HasValue ? _limits : _singleDisplay ? display : _desktop;
         _anchor = point;
-        _dragMoved = false;
+        _dragThreshold = dragThreshold ?? new Drawing.Size(DragThresholdDips, DragThresholdDips);
+        _dragStarted = false;
         Changed?.Invoke();
     }
 
@@ -81,21 +87,21 @@ internal sealed class RegionSelection
         if (_anchor is not { } start)
             return null;
 
-        var draft = Draft(start, point);
-        var resizing = ResizeCorner.HasValue;
+        var dragging = ResizeCorner.HasValue || _dragStarted || IsDragDistance(start, point);
+        var draft = dragging ? Draft(start, point) : default;
         Pointer = point;
         _anchor = null;
         ResizeCorner = null;
-        if (IsSelectable(draft))
+        if (!dragging)
+        {
+            if (Selection is { } selected && selected.Contains(start))
+                return selected;
+            Selection = WindowAt(start);
+        }
+        else if (IsSelectable(draft))
         {
             Selection = draft;
             _limits = _dragLimits;
-        }
-        else if (!resizing && !_dragMoved && !IsDragDistance(start, point))
-        {
-            if (Selection is { } selected && selected.Contains(start) && selected.Contains(point))
-                return selected;
-            Selection = WindowAt(point);
         }
         Changed?.Invoke();
         return null;
@@ -194,8 +200,8 @@ internal sealed class RegionSelection
     private bool IsSelectable(Drawing.Rectangle rect) =>
         rect.Width >= MinimumSize && rect.Height >= MinimumSize && _displays.Any(display => display.IntersectsWith(rect));
 
-    private static bool IsDragDistance(Drawing.Point start, Drawing.Point end) =>
-        Math.Abs(end.X - start.X) >= MinimumSize || Math.Abs(end.Y - start.Y) >= MinimumSize;
+    private bool IsDragDistance(Drawing.Point start, Drawing.Point end) =>
+        Math.Abs(end.X - start.X) >= _dragThreshold.Width || Math.Abs(end.Y - start.Y) >= _dragThreshold.Height;
 
     private static Drawing.Point Clamp(Drawing.Point point, Drawing.Rectangle limits) =>
         new(Math.Clamp(point.X, limits.Left, limits.Right), Math.Clamp(point.Y, limits.Top, limits.Bottom));
