@@ -6,7 +6,9 @@
 
 **Capture screenshots, add annotations, and copy text from images on Windows.**
 
-Press `Print Screen`, drag an area or click a highlighted window, then press `Enter` or `Ctrl+C` to copy it. You can also click inside the selection to copy it. An area can span monitors. Drag a corner to resize it. Use the arrow keys to move it by one pixel or hold `Shift` to move it by ten. Use `Ctrl+Shift+1` to capture an area in the editor, where you can annotate it, copy text from it, or cover contact details.
+Press `Print Screen`, drag an area or click a highlighted window, then press `Enter`, press `Ctrl+C`, or click inside the frame to copy it. An area can span monitors. Drag inside the frame to move it or drag a corner to resize it. For finer movement, the arrow keys move it one pixel or ten with `Shift`.
+
+Use the toolbar next to the frame to annotate, copy text, hide contact details, save, pin, or open the screenshot in the full editor. Choosing a drawing tool locks the frame. Undo all marks to adjust it again. `Ctrl+Shift+1` opens a new capture directly in the full editor after you confirm the selection.
 
 [**Download Framelet for Windows x64**](https://github.com/SerzLV/Framelet/releases/latest). Run `Framelet.exe` or use the ZIP bundle with license notices. The .NET Desktop Runtime is included.
 

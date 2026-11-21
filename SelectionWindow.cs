@@ -10,13 +10,15 @@ namespace Framelet;
 internal sealed class SelectionWindow : Window
 {
     internal SelectionWindow(ScreenSnapshot snapshot, bool activate, string promptKey, string adjustPromptKey,
-        RegionSelection session, Action<Drawing.Rectangle> selected, Action<Drawing.Rectangle>? copy, Action canceled)
+        RegionSelection session, Action<Drawing.Rectangle> selected, Action<Drawing.Rectangle>? copy, Action canceled,
+        Action<KeyEventArgs>? editKey = null)
         : this(snapshot, activate, new SelectionSurface(snapshot, UiText.Get(promptKey), UiText.Get(adjustPromptKey),
             canceled, session, selected), canceled)
     {
         PreviewKeyDown += (_, e) =>
         {
-            if (session.IsDragging || session.Selection is not { } region)
+            editKey?.Invoke(e);
+            if (e.Handled || session.IsLocked || session.IsDragging || session.Selection is not { } region)
                 return;
 
             var modifiers = Keyboard.Modifiers;
@@ -146,7 +148,7 @@ internal sealed class SelectionSurface : FrameworkElement
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        if (!CaptureMouse())
+        if (_session?.IsLocked == true || !CaptureMouse())
             return;
 
         if (_session is { } session)
@@ -273,7 +275,8 @@ internal sealed class SelectionSurface : FrameworkElement
         {
             SelectionCorner.TopLeft or SelectionCorner.BottomRight => Cursors.SizeNWSE,
             SelectionCorner.TopRight or SelectionCorner.BottomLeft => Cursors.SizeNESW,
-            _ => Cursors.Cross
+            _ => !session.IsLocked && session.Selection is { } selection && selection.Contains(session.Pointer)
+                ? Cursors.SizeAll : Cursors.Cross
         };
         if (Cursor != cursor)
             Cursor = cursor;

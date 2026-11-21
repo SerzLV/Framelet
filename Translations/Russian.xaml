@@ -136,6 +136,13 @@
     <sys:String x:Key="Ui.HistoryDateFormat">dd.MM, HH:mm</sys:String>
     <sys:String x:Key="Ui.HistoryTooltipFormat">dd.MM.yyyy HH:mm</sys:String>
     <sys:String x:Key="Ui.SelectionTitle">Framelet · Выбор области</sys:String>
+    <sys:String x:Key="Ui.SelectionToolbar">Инструменты снимка</sys:String>
+    <sys:String x:Key="Ui.SelectionAdjustFrame">Подогнать рамку</sys:String>
+    <sys:String x:Key="Ui.SelectionBothHeads">Два наконечника</sys:String>
+    <sys:String x:Key="Ui.SelectionOpenEditor">Открыть в редакторе</sys:String>
+    <sys:String x:Key="Ui.SelectionCopyText">Копировать текст · Ctrl+E</sys:String>
+    <sys:String x:Key="Ui.SelectionClose">Закрыть · Esc</sys:String>
+    <sys:String x:Key="Ui.SelectionNoContacts">Контактные данные не найдены</sys:String>
     <sys:String x:Key="Ui.SelectionPrompt">Потяните для выбора области или кликните по окну   ·   Esc — отмена</sys:String>
     <sys:String x:Key="Ui.ClipboardSelectionAdjustPrompt">Enter, Ctrl+C или клик внутри — скопировать   ·   Тяните за углы   ·   Стрелки — сдвиг   ·   Esc — отмена</sys:String>
     <sys:String x:Key="Ui.EditorSelectionAdjustPrompt">Enter или клик внутри — в редактор   ·   Ctrl+C — скопировать   ·   Тяните за углы   ·   Стрелки — сдвиг   ·   Esc — отмена</sys:String>

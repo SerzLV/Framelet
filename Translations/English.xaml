@@ -136,6 +136,13 @@
     <sys:String x:Key="Ui.HistoryDateFormat">MMM d, HH:mm</sys:String>
     <sys:String x:Key="Ui.HistoryTooltipFormat">MMM d, yyyy HH:mm</sys:String>
     <sys:String x:Key="Ui.SelectionTitle">Framelet · Region selection</sys:String>
+    <sys:String x:Key="Ui.SelectionToolbar">Screenshot tools</sys:String>
+    <sys:String x:Key="Ui.SelectionAdjustFrame">Adjust frame</sys:String>
+    <sys:String x:Key="Ui.SelectionBothHeads">Two arrowheads</sys:String>
+    <sys:String x:Key="Ui.SelectionOpenEditor">Open in editor</sys:String>
+    <sys:String x:Key="Ui.SelectionCopyText">Copy text · Ctrl+E</sys:String>
+    <sys:String x:Key="Ui.SelectionClose">Close · Esc</sys:String>
+    <sys:String x:Key="Ui.SelectionNoContacts">No contact details found</sys:String>
     <sys:String x:Key="Ui.SelectionPrompt">Drag a region or click a window   ·   Esc to cancel</sys:String>
     <sys:String x:Key="Ui.ClipboardSelectionAdjustPrompt">Enter, Ctrl+C or click inside to copy   ·   Drag corners to resize   ·   Arrows to move   ·   Esc to cancel</sys:String>
     <sys:String x:Key="Ui.EditorSelectionAdjustPrompt">Enter or click inside to edit   ·   Ctrl+C to copy   ·   Drag corners to resize   ·   Arrows to move   ·   Esc to cancel</sys:String>

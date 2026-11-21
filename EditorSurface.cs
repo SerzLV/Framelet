@@ -89,8 +89,26 @@ public sealed class EditorSurface : FrameworkElement
     internal bool CanUndo => _undo.Count > 0;
     internal bool CanRedo => _redo.Count > 0;
     internal bool HasSelection => _selectedIndex >= 0;
+    internal bool HasAnnotations => _marks.Count > 0;
     internal int OcrRevision { get; private set; }
     internal bool IsShowingSource(BitmapSource image) => ReferenceEquals(_image, image);
+
+    internal static EditorTool? ToolForKey(Key key) => key switch
+    {
+        Key.S => EditorTool.Select,
+        Key.H => EditorTool.Hand,
+        Key.A => EditorTool.Arrow,
+        Key.V => EditorTool.CurveArrow,
+        Key.L => EditorTool.Line,
+        Key.R => EditorTool.Rectangle,
+        Key.O => EditorTool.Ellipse,
+        Key.P => EditorTool.Pen,
+        Key.M => EditorTool.Marker,
+        Key.T => EditorTool.Text,
+        Key.N => EditorTool.Number,
+        Key.B => EditorTool.Redact,
+        _ => null
+    };
     private int ViewX => _crop?.X ?? 0;
     private int ViewY => _crop?.Y ?? 0;
 

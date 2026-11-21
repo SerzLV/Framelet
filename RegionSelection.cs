@@ -12,6 +12,7 @@ internal enum SelectionCorner
 
 internal sealed class RegionSelection
 {
+    private enum DragKind { Create, Resize, Move }
     internal const int DragThresholdDips = 6;
     private const int MinimumSize = 3;
     private static readonly SelectionCorner[] CornerOrder = Enum.GetValues<SelectionCorner>();
@@ -24,6 +25,8 @@ internal sealed class RegionSelection
     private Drawing.Point? _anchor;
     private Drawing.Size _dragThreshold;
     private bool _dragStarted;
+    private DragKind _dragKind;
+    private Drawing.Rectangle _lastMove;
 
     internal RegionSelection(IReadOnlyList<Drawing.Rectangle> displays, IReadOnlyList<Drawing.Rectangle> windows,
         bool singleDisplay)
@@ -41,6 +44,7 @@ internal sealed class RegionSelection
     internal Drawing.Rectangle? Selection { get; private set; }
     internal SelectionCorner? ResizeCorner { get; private set; }
     internal bool IsDragging => _anchor.HasValue;
+    internal bool IsLocked { get; private set; }
 
     internal Drawing.Rectangle? Preview
     {
@@ -48,7 +52,7 @@ internal sealed class RegionSelection
         {
             if (_anchor is { } start)
             {
-                if (ResizeCorner is null && !_dragStarted)
+                if (_dragKind != DragKind.Resize && !_dragStarted)
                     return Selection ?? WindowAt(start);
 
                 var draft = Draft(start, Pointer);
@@ -63,19 +67,28 @@ internal sealed class RegionSelection
         if (Pointer == point)
             return;
         Pointer = point;
-        if (_anchor is { } start && IsDragDistance(start, point))
-            _dragStarted = true;
+        if (_anchor is { } start)
+        {
+            _dragStarted |= IsDragDistance(start, point);
+            if (_dragStarted && _dragKind == DragKind.Move)
+                _lastMove = Draft(start, point);
+        }
         Changed?.Invoke();
     }
 
     internal void Begin(Drawing.Point point, SelectionCorner? corner = null, Drawing.Size? dragThreshold = null)
     {
+        if (IsLocked)
+            return;
         var display = _displays.FirstOrDefault(bounds => bounds.Contains(point));
         if (display.IsEmpty)
             return;
         Pointer = point;
         ResizeCorner = Selection is not null ? corner : null;
-        _dragLimits = ResizeCorner.HasValue ? _limits : _singleDisplay ? display : _desktop;
+        _dragKind = ResizeCorner.HasValue ? DragKind.Resize
+            : Selection is { } frame && frame.Contains(point) ? DragKind.Move : DragKind.Create;
+        _lastMove = Selection.GetValueOrDefault();
+        _dragLimits = _dragKind != DragKind.Create ? _limits : _singleDisplay ? display : _desktop;
         _anchor = point;
         _dragThreshold = dragThreshold ?? new Drawing.Size(DragThresholdDips, DragThresholdDips);
         _dragStarted = false;
@@ -87,7 +100,7 @@ internal sealed class RegionSelection
         if (_anchor is not { } start)
             return null;
 
-        var dragging = ResizeCorner.HasValue || _dragStarted || IsDragDistance(start, point);
+        var dragging = _dragKind == DragKind.Resize || _dragStarted || IsDragDistance(start, point);
         var draft = dragging ? Draft(start, point) : default;
         Pointer = point;
         _anchor = null;
@@ -116,9 +129,17 @@ internal sealed class RegionSelection
         Changed?.Invoke();
     }
 
+    internal void SetLocked(bool locked)
+    {
+        if (IsLocked == locked)
+            return;
+        IsLocked = locked;
+        Changed?.Invoke();
+    }
+
     internal SelectionCorner? CornerAt(Drawing.Point point, Drawing.Size hitRadius)
     {
-        if (IsDragging || Selection is not { } region)
+        if (IsLocked || IsDragging || Selection is not { } region)
             return null;
 
         // Preserve a click target inside small selections.
@@ -149,6 +170,8 @@ internal sealed class RegionSelection
 
     private Drawing.Rectangle Draft(Drawing.Point start, Drawing.Point point)
     {
+        if (_dragKind == DragKind.Move && Selection is { } originFrame)
+            return MoveWithinBounds(originFrame, point.X - start.X, point.Y - start.Y) ?? _lastMove;
         if (ResizeCorner is not { } corner || Selection is not { } region)
             return FromPoints(start, Clamp(point, _dragLimits));
 
@@ -171,15 +194,20 @@ internal sealed class RegionSelection
 
     internal void Nudge(int x, int y)
     {
-        if (IsDragging || Selection is not { } region)
+        if (IsLocked || IsDragging || Selection is not { } region)
             return;
 
+        if (MoveWithinBounds(region, x, y) is not { } moved || moved == region)
+            return;
+        Selection = moved;
+        Changed?.Invoke();
+    }
+
+    private Drawing.Rectangle? MoveWithinBounds(Drawing.Rectangle region, int x, int y)
+    {
         region.X = Math.Clamp(region.X + x, _limits.Left, _limits.Right - region.Width);
         region.Y = Math.Clamp(region.Y + y, _limits.Top, _limits.Bottom - region.Height);
-        if (region == Selection || !_displays.Any(display => display.IntersectsWith(region)))
-            return;
-        Selection = region;
-        Changed?.Invoke();
+        return _displays.Any(display => display.IntersectsWith(region)) ? region : null;
     }
 
     private Drawing.Rectangle? WindowAt(Drawing.Point point)

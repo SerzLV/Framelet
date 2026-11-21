@@ -131,14 +131,15 @@ public partial class MainWindow : Window
         EditorImage.Focus();
     }
 
-    private async Task OpenCapturedImageAsync(BitmapSource image, string status)
+    private async Task OpenCapturedImageAsync(BitmapSource image, string status, EditorDocument? document = null)
     {
-        OpenEditor(image, null);
+        OpenEditor(document?.Image ?? image, null, document?.Journal);
         var revision = _revision;
         ShowWorkspace();
         Report(UiText.Get(status));
         await EnsureHistoryLoadedAsync();
-        await RememberEditorAsync(image, revision);
+        if (await RememberEditorAsync(image, revision) && _entryPath is { } path)
+            LinkCaptureToHistory(image, path);
     }
 
     private async void Home_Click(object sender, RoutedEventArgs e) => await ReturnHomeAsync();
@@ -278,12 +279,17 @@ public partial class MainWindow : Window
             EditorImage.CompleteStrokeAdjustment();
             var revision = _revision;
             var image = await EditorImage.ExportAsync();
-            var pin = AuxiliaryWindows.ShowPin(this, image);
-            _pins.Add(pin);
-            pin.Closed += (_, _) => _pins.Remove(pin);
-            Report(UiText.Get("Pinned"));
+            PinImage(image);
             await RememberEditorAsync(image, revision);
         });
+    }
+
+    private void PinImage(BitmapSource image)
+    {
+        var pin = AuxiliaryWindows.ShowPin(this, image);
+        _pins.Add(pin);
+        pin.Closed += (_, _) => _pins.Remove(pin);
+        Report(UiText.Get("Pinned"));
     }
 
     private void EditorChanged()
@@ -652,22 +658,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        EditorTool? tool = e.Key switch
-        {
-            Key.A => EditorTool.Arrow,
-            Key.S => EditorTool.Select,
-            Key.H => EditorTool.Hand,
-            Key.L => EditorTool.Line,
-            Key.V => EditorTool.CurveArrow,
-            Key.R => EditorTool.Rectangle,
-            Key.O => EditorTool.Ellipse,
-            Key.P => EditorTool.Pen,
-            Key.M => EditorTool.Marker,
-            Key.T => EditorTool.Text,
-            Key.N => EditorTool.Number,
-            Key.B => EditorTool.Redact,
-            _ => null
-        };
+        var tool = EditorSurface.ToolForKey(e.Key);
         if (tool is not null)
         {
             SelectTool(tool.Value);

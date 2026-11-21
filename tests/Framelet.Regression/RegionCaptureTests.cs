@@ -84,9 +84,9 @@ internal static partial class Program
         Require(session.End(new Drawing.Point(5, 50)) is null && session.Selection == expected,
             "Returning a drag to its origin does not confirm the previous selection");
 
-        session.Begin(new Drawing.Point(85, 88));
+        session.Begin(new Drawing.Point(100, 130));
         session.MovePointer(new Drawing.Point(-90, 12));
-        Require(session.Preview == new Drawing.Rectangle(-90, 12, 175, 76), "A drag can cross in the reverse direction");
+        Require(session.Preview == new Drawing.Rectangle(-90, 12, 190, 118), "A drag started outside the frame can cross in the reverse direction");
         session.CancelDrag();
         Require(session.Selection == expected, "Losing capture restores the confirmed draft");
 
@@ -111,6 +111,47 @@ internal static partial class Program
         scaled.End(new Drawing.Point(59, 53));
         Require(scaled.Selection == new Drawing.Rectangle(50, 50, 9, 3),
             "A deliberate narrow selection crossing the drag threshold still works without an intermediate move event");
+    }
+
+    private static void RegionSelectionMovesAndPlacesToolbar()
+    {
+        var left = new Drawing.Rectangle(-250, 0, 150, 140);
+        var right = new Drawing.Rectangle(0, 150, 180, 150);
+        var session = new RegionSelection([left, right], [], singleDisplay: false);
+        var original = new Drawing.Rectangle(-190, 40, 30, 20);
+        session.Begin(original.Location);
+        session.End(new Drawing.Point(original.Right, original.Bottom));
+        var start = new Drawing.Point(-180, 50);
+        session.Begin(start);
+        session.MovePointer(new Drawing.Point(-177, 53));
+        Require(session.Preview == original, "Moving an existing region waits for the drag threshold");
+        var moved = new Drawing.Rectangle(-165, 70, 30, 20);
+        session.MovePointer(new Drawing.Point(-155, 80));
+        Require(session.Preview == moved && session.Selection == original, "Dragging inside an existing frame moves its preview without resizing");
+        var gap = new Drawing.Point(-55, 105);
+        session.MovePointer(gap);
+        Require(session.Preview == moved && session.End(gap) is null && session.Selection == moved,
+            "Crossing a monitor gap preserves the last usable position");
+        session.Begin(new Drawing.Point(-150, 80));
+        session.MovePointer(new Drawing.Point(-210, 95));
+        session.CancelDrag();
+        Require(session.Selection == moved, "Losing mouse capture rolls back a move");
+        session.SetLocked(true);
+        session.Begin(new Drawing.Point(-150, 80));
+        session.Nudge(7, 9);
+        Require(!session.IsDragging && session.Selection == moved, "An editing selection stays fixed for mouse and arrow moves");
+        session.SetLocked(false);
+        session.Nudge(7, 0);
+        Require(session.Selection?.X == moved.X + 7, "Unlocking the frame restores its movement controls");
+
+        var area = new Drawing.Rectangle(100, 100, 500, 400);
+        var size = new Drawing.Size(220, 60);
+        Require(SelectionToolbar.PlaceToolbar(new Drawing.Rectangle(150, 130, 320, 130), size, area) == new Drawing.Point(250, 268),
+            "Toolbar fits below the selection and aligns to its right edge");
+        Require(SelectionToolbar.PlaceToolbar(new Drawing.Rectangle(150, 290, 510, 170), size, area) == new Drawing.Point(380, 222),
+            "Toolbar flips above and clamps to the monitor's right edge");
+        Require(SelectionToolbar.PlaceToolbar(new Drawing.Rectangle(130, 120, 470, 365), size, area) == new Drawing.Point(380, 417),
+            "Toolbar fits inside the bottom corner when neither outer edge has room");
     }
 
     private static void RegionSelectionResizesFromCorners()

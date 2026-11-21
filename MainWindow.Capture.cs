@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
@@ -273,7 +275,7 @@ public partial class MainWindow
                 }
 
                 RecordCapture(image);
-                if (selection is { CopyToClipboard: true })
+                if (selection is { Output: SelectionOutput.Copy })
                 {
                     await CopyImageToClipboardAsync(image);
                     if (returnOnCancel)
@@ -303,7 +305,7 @@ public partial class MainWindow
     {
         var wasVisible = IsVisible;
         var wasActive = IsActive;
-        BitmapSource? image;
+        RegionCapture? capture;
         Hide();
         try
         {
@@ -314,16 +316,36 @@ public partial class MainWindow
             }
             await Task.Delay(65);
             Native.DwmFlush();
-            image = (await SelectRegionAsync(mode))?.Snapshot.Image;
-            if (image is null)
+            capture = await SelectRegionAsync(mode);
+            if (capture is null)
             {
                 Report(UiText.Get("CaptureCanceled"));
                 return;
             }
 
+            var image = capture.Snapshot.Image;
+            if (capture.Output == SelectionOutput.Editor)
+            {
+                CloseSettings();
+                CloseRename(returnFocus: false);
+                if (await SaveBeforeLeavingAsync())
+                {
+                    RecordCapture(image);
+                    await OpenCapturedImageAsync(image, "CaptureReady", capture.Document);
+                }
+                return;
+            }
+
             RecordCapture(image);
-            await CopyImageToClipboardAsync(image);
-            Report(UiText.Get("ImageCopied"));
+            if (capture is { Output: SelectionOutput.Save, FilePath: { } path })
+                Report(UiText.Format("SavedFile", Path.GetFileName(path)));
+            else if (capture.Output == SelectionOutput.Pin)
+                PinImage(image);
+            else
+            {
+                await CopyImageToClipboardAsync(image);
+                Report(UiText.Get("ImageCopied"));
+            }
         }
         finally
         {
@@ -341,14 +363,14 @@ public partial class MainWindow
             }
         }
 
-        await RememberClipboardCaptureAsync(image);
+        await RememberClipboardCaptureAsync(capture.Snapshot.Image, capture.Document);
     }
 
-    private async Task RememberClipboardCaptureAsync(BitmapSource image)
+    private async Task RememberClipboardCaptureAsync(BitmapSource image, EditorDocument? document = null)
     {
         if (_preferences.KeepHistory)
         {
-            var item = await Task.Run(() => _history.Put(_history.CreateEntryPath(), image));
+            var item = await Task.Run(() => _history.Put(_history.CreateEntryPath(), image, document));
             LinkCaptureToHistory(image, item.FilePath);
             if (_initialHistoryLoad is { } loading)
             {
@@ -378,7 +400,7 @@ public partial class MainWindow
         }
     }
 
-    private async Task<(ScreenSnapshot Snapshot, bool CopyToClipboard)?> SelectRegionAsync(CaptureMode mode)
+    private async Task<RegionCapture?> SelectRegionAsync(CaptureMode mode)
     {
         var (promptKey, adjustPromptKey) = mode switch
         {
@@ -391,13 +413,21 @@ public partial class MainWindow
             singleDisplay ? [] : CaptureService.GetVisibleWindowBounds()));
         var session = new RegionSelection(screens.Select(screen => screen.Bounds).ToArray(), candidates, singleDisplay);
         session.MovePointer(CaptureService.CursorPosition);
-        var completion = new TaskCompletionSource<(Drawing.Rectangle Bounds, bool CopyToClipboard)?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<SelectionRequest?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ink = PaletteSwatch(_palette?.Color)?.Tag is string color
+            ? (Color)ColorConverter.ConvertFromString(color) : EditorImage.Ink;
+        using var edits = mode is CaptureMode.QuickClipboard or CaptureMode.Delayed
+            ? new SelectionEditingSession(session, screens, ink, EditorImage.StrokeWidth, EditorImage.NewCurveHasBothHeads,
+                SelectionColors, RememberColor, text => AccessClipboardAsync(() => Clipboard.SetText(text)),
+                request => completion.TrySetResult(request), () => completion.TrySetResult(null))
+            : null;
+        Action<KeyEventArgs>? editKey = edits is null ? null : edits.HandleKey;
         var windows = screens.Select((screen, index) => new SelectionWindow(screen, index == 0, promptKey, adjustPromptKey, session,
-            region => completion.TrySetResult((region, false)),
-            singleDisplay ? null : region => completion.TrySetResult((region, true)),
-            () => completion.TrySetResult(null))).ToArray();
+            region => completion.TrySetResult(new SelectionRequest(region)),
+            singleDisplay ? null : region => completion.TrySetResult(new SelectionRequest(region, SelectionOutput.Copy)),
+            () => completion.TrySetResult(null), editKey)).ToArray();
 
-        (Drawing.Rectangle Bounds, bool CopyToClipboard)? selection;
+        SelectionRequest? selection;
         try
         {
             foreach (var window in windows.Reverse())
@@ -409,15 +439,28 @@ public partial class MainWindow
         }
         finally
         {
+            edits?.Dispose();
             foreach (var window in windows)
             {
                 if (window.IsVisible)
                     window.Close();
             }
         }
-        return selection is { } captured
-            ? (await Task.Run(() => new ScreenSnapshot(captured.Bounds, CaptureService.CropDisplays(screens, captured.Bounds))),
-                captured.CopyToClipboard)
-            : null;
+        if (selection is not { } captured)
+            return null;
+
+        var image = captured.Rendered ?? await Task.Run(() => CaptureService.CropDisplays(screens, captured.Bounds));
+        return new RegionCapture(new ScreenSnapshot(captured.Bounds, image), captured.Output, captured.Document, captured.FilePath);
+    }
+
+    private IEnumerable<SelectionSwatch> SelectionColors()
+    {
+        foreach (var swatch in ColorButtons.Children.OfType<Button>())
+            yield return new SelectionSwatch((string)swatch.Tag, swatch.ToolTip?.ToString() ?? (string)swatch.Tag);
+        foreach (var tag in _palette?.RecentColors ?? [])
+        {
+            if (PaletteSwatch(tag) is { } swatch)
+                yield return new SelectionSwatch(tag, swatch.ToolTip?.ToString() ?? tag, Recent: true);
+        }
     }
 }
