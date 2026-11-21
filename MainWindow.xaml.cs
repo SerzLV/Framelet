@@ -211,7 +211,7 @@ public partial class MainWindow : Window
 
     private async void EditSaveTimer_Tick(object? sender, EventArgs e)
     {
-        if (!_busy)
+        if (!_busy && _historyConfirmation is null)
             await RunOperation(async () => await RememberEditorAsync());
     }
 
@@ -785,12 +785,12 @@ public partial class MainWindow : Window
 
     private async void ClearHistory_Click(object sender, RoutedEventArgs e)
     {
+        if (!await AskHistoryConfirmationAsync("ClearHistory", UiText.Get("DeleteConfirm"),
+                "ClearHistory", ClearHistoryButton))
+            return;
+
         await RunOperation(async () =>
         {
-            if (!await AskHistoryConfirmationAsync("ClearHistory", UiText.Get("DeleteConfirm"),
-                    "ClearHistory", ClearHistoryButton))
-                return;
-
             await EnsureHistoryLoadedAsync();
             var cutoff = DateTime.UtcNow;
             if (!TrySavePreferences(_preferences with { HistoryClearedUtc = cutoff }))
@@ -875,6 +875,7 @@ public partial class MainWindow : Window
             _quickCapturePending = false;
         try
         {
+            CancelHistoryConfirmation();
             await action();
         }
         catch (Exception ex)

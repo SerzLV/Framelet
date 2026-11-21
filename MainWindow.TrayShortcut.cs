@@ -133,7 +133,7 @@ public partial class MainWindow
     private bool InterceptShortcutWhileRecording(int id)
     {
         if ((!_recordingWorkspaceShortcut && _recordingCaptureShortcut is null) || !IsActive
-            || SettingsLayer.Visibility != Visibility.Visible)
+            || !SettingsLayer.IsEnabled || SettingsLayer.Visibility != Visibility.Visible)
             return false;
         if (_recordingCaptureShortcut is { } action && CaptureActionForRegistration(id) == action)
             StopRecordingCaptureShortcut();

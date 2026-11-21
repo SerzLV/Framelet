@@ -10,7 +10,7 @@ namespace Framelet;
 public partial class MainWindow
 {
     private HistoryItem? _renameTarget;
-    private TaskCompletionSource<bool>? _historyConfirmation;
+    private Action<bool>? _historyConfirmation;
     private readonly Dictionary<HistoryItem, string> _historyText = new(ReferenceEqualityComparer.Instance);
     private HashSet<HistoryItem> _historyMembership = new(ReferenceEqualityComparer.Instance);
     private CancellationTokenSource? _historyIndexRequest;
@@ -73,49 +73,39 @@ public partial class MainWindow
 
     private async void DeleteHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: HistoryItem item })
-        {
-            await RunOperation(async () =>
-            {
-                if (!await AskHistoryConfirmationAsync("Delete", UiText.Format("RecycleConfirm", item.DisplayName),
-                        "RecycleAction", HistorySearch))
-                    return;
+        if (sender is not MenuItem { DataContext: HistoryItem item })
+            return;
+        if (!await AskHistoryConfirmationAsync("Delete", UiText.Format("RecycleConfirm", item.DisplayName),
+                "RecycleAction", HistorySearch))
+            return;
 
-                try
-                {
-                    await Task.Run(() => _history.Delete(item.FilePath));
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
-                RefreshHistory(_recent.Where(entry => !string.Equals(entry.FilePath, item.FilePath, StringComparison.OrdinalIgnoreCase))
-                    .ToArray());
-                Report(UiText.Get("HistoryItemDeleted"));
-            });
-        }
+        await RunOperation(async () =>
+        {
+            try
+            {
+                await Task.Run(() => _history.Delete(item.FilePath));
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            RefreshHistory(_recent.Where(entry => !string.Equals(entry.FilePath, item.FilePath, StringComparison.OrdinalIgnoreCase))
+                .ToArray());
+            Report(UiText.Get("HistoryItemDeleted"));
+        });
     }
 
-    private async Task<bool> AskHistoryConfirmationAsync(string title, string message, string action, UIElement restoreFocus)
+    private Task<bool> AskHistoryConfirmationAsync(string title, string message, string action, UIElement restoreFocus)
     {
+        if (_busy || _historyConfirmation is not null)
+            return Task.FromResult(false);
+
         var confirmation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var homeEnabled = HomeView.IsEnabled;
         var editorEnabled = EditorView.IsEnabled;
         var settingsEnabled = SettingsLayer.IsEnabled;
 
-        _historyConfirmation = confirmation;
-        HistoryConfirmationTitle.Text = UiText.Get(title);
-        HistoryConfirmationMessage.Text = message;
-        HistoryConfirmationAction.Content = UiText.Get(action);
-        HomeView.IsEnabled = EditorView.IsEnabled = SettingsLayer.IsEnabled = false;
-        HistoryConfirmationLayer.Visibility = Visibility.Visible;
-        HistoryConfirmationCancel.Focus();
-
-        try
-        {
-            return await confirmation.Task;
-        }
-        finally
+        _historyConfirmation = confirmed =>
         {
             _historyConfirmation = null;
             HistoryConfirmationLayer.Visibility = Visibility.Collapsed;
@@ -124,12 +114,21 @@ public partial class MainWindow
             SettingsLayer.IsEnabled = settingsEnabled;
             if (restoreFocus.IsVisible && IsActive)
                 restoreFocus.Focus();
-        }
+            confirmation.SetResult(confirmed);
+        };
+
+        HistoryConfirmationTitle.Text = UiText.Get(title);
+        HistoryConfirmationMessage.Text = message;
+        HistoryConfirmationAction.Content = UiText.Get(action);
+        HomeView.IsEnabled = EditorView.IsEnabled = SettingsLayer.IsEnabled = false;
+        HistoryConfirmationLayer.Visibility = Visibility.Visible;
+        HistoryConfirmationCancel.Focus();
+        return confirmation.Task;
     }
 
-    private void ConfirmHistoryAction_Click(object sender, RoutedEventArgs e) => _historyConfirmation?.TrySetResult(true);
+    private void ConfirmHistoryAction_Click(object sender, RoutedEventArgs e) => _historyConfirmation?.Invoke(true);
     private void CancelHistoryAction_Click(object sender, RoutedEventArgs e) => CancelHistoryConfirmation();
-    private void CancelHistoryConfirmation() => _historyConfirmation?.TrySetResult(false);
+    private void CancelHistoryConfirmation() => _historyConfirmation?.Invoke(false);
 
     private void RenameHistory_Click(object sender, RoutedEventArgs e)
     {

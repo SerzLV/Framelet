@@ -70,8 +70,22 @@ try {
     $exe = Join-Path $published 'Framelet.exe'
     $zip = Join-Path $stage 'Framelet-win-x64.zip'
     $checksums = Join-Path $stage 'SHA256SUMS.txt'
-    Compress-Archive -LiteralPath @($exe, $licenses, (Join-Path $licenses 'LICENSE'),
-        (Join-Path $licenses 'THIRD-PARTY-NOTICES.md')) -DestinationPath $zip
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $compression = [IO.Compression.CompressionLevel]::Optimal
+        foreach ($file in @($exe, (Join-Path $licenses 'LICENSE'), (Join-Path $licenses 'THIRD-PARTY-NOTICES.md'))) {
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, $file, [IO.Path]::GetFileName($file), $compression) | Out-Null
+        }
+        foreach ($file in Get-ChildItem -LiteralPath $licenses -File | Sort-Object Name) {
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, $file.FullName, "licenses/$($file.Name)", $compression) | Out-Null
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
 
     Get-FileHash -LiteralPath $exe, $zip | ForEach-Object {
         '{0}  {1}' -f $_.Hash.ToLowerInvariant(), [IO.Path]::GetFileName($_.Path)
