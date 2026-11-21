@@ -9,6 +9,22 @@ internal static partial class Program
     private const int Height = 600;
     private const int Width = 1060;
 
+    private static void ScrollCaptureKeepsWholeFrames()
+    {
+        var document = DrawCards();
+        var first = new CroppedBitmap(document, new Int32Rect(0, 0, Width, Height));
+        var second = new CroppedBitmap(document, new Int32Rect(0, 800, Width, Height));
+        var capture = new ScrollStitcher(first);
+        Require(capture.TryAppend(second, wholeFrame: true) == ScrollFrameResult.Added,
+            "Whole-frame capture accepts a new screen without overlap");
+        Require(capture.TryAppend(second, wholeFrame: true) == ScrollFrameResult.Unchanged && capture.FrameCount == 2,
+            "Whole-frame capture skips duplicate screens");
+        Require(ToPixels(capture.Finish()).SequenceEqual(ToPixels(first).Concat(ToPixels(second))),
+            "Whole-frame capture preserves every row in order");
+        Require(System.Runtime.InteropServices.Marshal.SizeOf<Native.Input>() == (IntPtr.Size == 8 ? 40 : 28),
+            "Native mouse and keyboard input share the correct Win32 layout");
+    }
+
     private static void ScrollStitchingPreservesContent()
     {
         var document = DrawCards();

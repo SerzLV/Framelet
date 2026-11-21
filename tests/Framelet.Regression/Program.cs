@@ -30,6 +30,7 @@ internal static partial class Program
             ExportPreservesLargeImage();
             ScrollStitchingPreservesContent();
             ScrollStitchingKeepsOneFooter();
+            ScrollCaptureKeepsWholeFrames();
             PrintScreenHookRestarts();
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             app.Resources.MergedDictionaries.Add(new ResourceDictionary

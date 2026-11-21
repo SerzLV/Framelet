@@ -102,10 +102,7 @@ internal sealed class ScrollWheelTarget
 
     internal async Task<bool> TryScrollDownAsync(int pointOffset)
     {
-        const int shift = 0x10, control = 0x11, alt = 0x12;
-        const int leftButton = 0x01, rightButton = 0x02, middleButton = 0x04;
-        if (!IsForeground || IsPressed(shift) || IsPressed(control) || IsPressed(alt)
-            || IsPressed(leftButton) || IsPressed(rightButton) || IsPressed(middleButton))
+        if (!CanAdvance())
             return false;
 
         for (var i = 0; i < _points.Length; i++)
@@ -116,6 +113,32 @@ internal sealed class ScrollWheelTarget
         }
 
         return false;
+    }
+
+    private bool CanAdvance()
+    {
+        const int shift = 0x10, control = 0x11, alt = 0x12;
+        const int leftWindows = 0x5B, rightWindows = 0x5C;
+        const int leftButton = 0x01, rightButton = 0x02, middleButton = 0x04;
+        return IsForeground && !IsPressed(shift) && !IsPressed(control) && !IsPressed(alt)
+            && !IsPressed(leftWindows) && !IsPressed(rightWindows)
+            && !IsPressed(leftButton) && !IsPressed(rightButton) && !IsPressed(middleButton);
+    }
+
+    internal unsafe bool TryPressDown()
+    {
+        const ushort down = 0x28;
+        const uint keyboard = 1, extendedKey = 1, keyUp = 2;
+        if (!CanAdvance() || IsPressed(down))
+            return false;
+
+        var inputs = stackalloc Native.Input[2];
+        inputs[0] = new Native.Input { Type = keyboard, Data = new() { Keyboard = new() { VirtualKey = down, Flags = extendedKey } } };
+        inputs[1] = new Native.Input { Type = keyboard, Data = new() { Keyboard = new() { VirtualKey = down, Flags = extendedKey | keyUp } } };
+        var sent = Native.SendInput(2, inputs, sizeof(Native.Input));
+        if (sent == 1)
+            Native.SendInput(1, inputs + 1, sizeof(Native.Input));
+        return sent == 2;
     }
 
     private static IntPtr RootAt(Drawing.Point point)
@@ -144,23 +167,23 @@ internal sealed class ScrollWheelTarget
     private static unsafe bool SendWheel(Drawing.Point point, Drawing.Rectangle desktop)
     {
         const uint wheel = 0x0800;
-        var input = stackalloc Native.MouseEventInput[2];
+        var input = stackalloc Native.Input[2];
         input[0] = MoveTo(point, desktop);
-        input[1] = new Native.MouseEventInput { Mouse = new Native.MouseInput { Flags = wheel, Data = -120 } };
-        return Native.SendInput(2, input, sizeof(Native.MouseEventInput)) == 2;
+        input[1] = new Native.Input { Data = new() { Mouse = new() { Flags = wheel, Data = -120 } } };
+        return Native.SendInput(2, input, sizeof(Native.Input)) == 2;
     }
 
-    private static Native.MouseEventInput MoveTo(Drawing.Point point, Drawing.Rectangle desktop)
+    private static Native.Input MoveTo(Drawing.Point point, Drawing.Rectangle desktop)
     {
         const uint moveAbsoluteVirtualDesktop = 0x0001 | 0x4000 | 0x8000;
-        return new Native.MouseEventInput
+        return new Native.Input
         {
-            Mouse = new Native.MouseInput
+            Data = new Native.InputData { Mouse = new Native.MouseInput
             {
                 X = Normalize(point.X - desktop.X, desktop.Width),
                 Y = Normalize(point.Y - desktop.Y, desktop.Height),
                 Flags = moveAbsoluteVirtualDesktop
-            }
+            } }
         };
     }
 
@@ -188,12 +211,28 @@ internal static partial class Native
         internal UIntPtr ExtraInfo;
     }
 
-    // MOUSEINPUT is the largest member of the native INPUT union.
     [StructLayout(LayoutKind.Sequential)]
-    internal struct MouseEventInput
+    internal struct KeyboardInput
+    {
+        internal ushort VirtualKey;
+        internal ushort ScanCode;
+        internal uint Flags;
+        internal uint Time;
+        internal UIntPtr ExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    internal struct InputData
+    {
+        [FieldOffset(0)] internal MouseInput Mouse;
+        [FieldOffset(0)] internal KeyboardInput Keyboard;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct Input
     {
         internal uint Type;
-        internal MouseInput Mouse;
+        internal InputData Data;
     }
 
     [LibraryImport("user32.dll")]
@@ -214,5 +253,5 @@ internal static partial class Native
     internal static partial bool SetCursorPos(int x, int y);
 
     [LibraryImport("user32.dll", SetLastError = true)]
-    internal static unsafe partial uint SendInput(uint count, MouseEventInput* inputs, int size);
+    internal static unsafe partial uint SendInput(uint count, Input* inputs, int size);
 }

@@ -225,6 +225,11 @@
     <sys:String x:Key="Ui.ScrollFinish">Открыть снимок</sys:String>
     <sys:String x:Key="Ui.ScrollNoChange">Страница на том же месте. Прокрутите немного вниз.</sys:String>
     <sys:String x:Key="Ui.ScrollNoOverlap">Кадры не совпали. Найдите на странице текст с миниатюры, прокрутите немного вниз и повторите.</sys:String>
+    <sys:String x:Key="Ui.ScrollWholeFrames">По кадрам (↓)</sys:String>
+    <sys:String x:Key="Ui.ScrollWholeFramesTip">Нажимает ↓ и добавляет каждый изменившийся кадр целиком. Выберите режим перед добавлением второго кадра.</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoFrames">Автозахват</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoFramesRunning">Переключаем экраны и добавляем кадры…</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoFramesStopped">Новый кадр не появился. Проверьте, что ↓ переключает содержимое в выделенной области.</sys:String>
     <sys:String x:Key="Ui.ScrollLimit">Достигнут предел размера. Можно открыть собранный снимок.</sys:String>
     <sys:String x:Key="Ui.ScrollAuto">Автопрокрутка</sys:String>
     <sys:String x:Key="Ui.ScrollAutoTip">Прокручивает страницу и добавляет кадры. Нажмите «Стоп», когда сняли нужный участок.</sys:String>

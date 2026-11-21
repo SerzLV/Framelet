@@ -225,6 +225,11 @@
     <sys:String x:Key="Ui.ScrollFinish">Open screenshot</sys:String>
     <sys:String x:Key="Ui.ScrollNoChange">The page is still in the same place. Scroll down a little.</sys:String>
     <sys:String x:Key="Ui.ScrollNoOverlap">Couldn't align the frames. Find the content shown in the preview, scroll down a little and try again.</sys:String>
+    <sys:String x:Key="Ui.ScrollWholeFrames">Whole frames (↓)</sys:String>
+    <sys:String x:Key="Ui.ScrollWholeFramesTip">Presses ↓ and adds each changed frame in full. Choose this mode before adding the second frame.</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoFrames">Auto-capture</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoFramesRunning">Advancing and capturing frames…</sys:String>
+    <sys:String x:Key="Ui.ScrollAutoFramesStopped">No new frame appeared. Check that ↓ changes the content inside the selection.</sys:String>
     <sys:String x:Key="Ui.ScrollLimit">Size limit reached. Open the captured image in the editor.</sys:String>
     <sys:String x:Key="Ui.ScrollAuto">Auto-scroll</sys:String>
     <sys:String x:Key="Ui.ScrollAutoTip">Scrolls the page and adds frames. Click Stop when you've captured what you need.</sys:String>

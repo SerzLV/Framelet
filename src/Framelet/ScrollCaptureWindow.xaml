@@ -35,6 +35,10 @@
                 </StackPanel>
             </DockPanel>
             <TextBlock x:Name="CaptureInstructions" Style="{StaticResource MutedText}" TextWrapping="Wrap" LineHeight="19" Margin="0,0,0,12"/>
+            <CheckBox x:Name="WholeFrames" Content="{DynamicResource Ui.ScrollWholeFrames}" FontSize="12" Margin="0,0,0,10"
+                      Click="WholeFrames_Click">
+                <CheckBox.ToolTip><ToolTip Content="{DynamicResource Ui.ScrollWholeFramesTip}"/></CheckBox.ToolTip>
+            </CheckBox>
             <Button x:Name="TailButton" Content="{DynamicResource Ui.ScrollTailAdd}" Click="AddTail_Click"
                     HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,0,0,8"/>
             <WrapPanel HorizontalAlignment="Right">

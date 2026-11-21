@@ -42,9 +42,9 @@ internal sealed class ScrollStitcher
     internal int Height { get; private set; }
     internal int FrameCount => _frameCount + (_tail is null ? 0 : 1);
 
-    internal ScrollFrameResult TryAppend(BitmapSource frame)
+    internal ScrollFrameResult TryAppend(BitmapSource frame, bool wholeFrame = false)
     {
-        if (_tail is not null || frame.PixelWidth != _width || frame.PixelHeight != _frameHeight)
+        if (_tail is not null || (wholeFrame && _footer is not null) || frame.PixelWidth != _width || frame.PixelHeight != _frameHeight)
             return ScrollFrameResult.NoOverlap;
 
         var pixels = _frameBuffer ??= AllocateFrame();
@@ -52,6 +52,9 @@ internal sealed class ScrollStitcher
         var rows = ReadRows(pixels);
         if (MatchesPrevious(rows))
             return ScrollFrameResult.Unchanged;
+
+        if (wholeFrame)
+            return AppendRows(pixels, rows, _frameHeight, _frameHeight);
 
         var contentHeight = _frameHeight - (_footer?.Length ?? 0) / _stride;
         var offset = 0;
@@ -70,6 +73,11 @@ internal sealed class ScrollStitcher
         if (offset <= 0)
             return ScrollFrameResult.NoOverlap;
 
+        return AppendRows(pixels, rows, contentHeight, offset);
+    }
+
+    private ScrollFrameResult AppendRows(byte[] pixels, ulong[][] rows, int contentHeight, int offset)
+    {
         var height = Height + offset;
         if (ExceedsSizeLimit(height))
             return ScrollFrameResult.Limit;
