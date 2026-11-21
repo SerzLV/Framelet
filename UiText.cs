@@ -23,7 +23,8 @@ internal static class UiText
         var english = ResolveLanguage(language) == "en";
         var dictionary = new ResourceDictionary
         {
-            Source = new Uri(english ? "Translations/English.xaml" : "Translations/Russian.xaml", UriKind.Relative)
+            Source = new Uri(english ? "/Framelet;component/Translations/English.xaml" : "/Framelet;component/Translations/Russian.xaml",
+                UriKind.Relative)
         };
         var resources = Application.Current.Resources.MergedDictionaries;
         if (_strings is null)

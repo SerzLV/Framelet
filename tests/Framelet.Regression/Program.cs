@@ -31,13 +31,17 @@ internal static partial class Program
             ScrollStitchingPreservesContent();
             ScrollStitchingKeepsOneFooter();
             PrintScreenHookRestarts();
-            var app = new App();
-            app.InitializeComponent();
-            app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            app.Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri("/Framelet;component/Theme.xaml", UriKind.Relative)
+            });
+            UiText.Apply("en");
             try
             {
                 PrimaryButtonsKeepTheirForeground(app);
                 PinnedCaptureUsesConnectedDisplays(app);
+                TextAnnotationCompletionPreservesUndo();
             }
             finally
             {
