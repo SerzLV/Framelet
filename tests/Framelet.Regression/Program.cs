@@ -18,6 +18,9 @@ internal static partial class Program
             HistoryViewportIncludesLastRow();
             OcrCacheTracksImageChanges(directory.FullName);
             LanguageFollowsSystem();
+            OcrDistinguishesYearsFromPhones();
+            RegionSelectionUsesDesktopCoordinates();
+            RegionCaptureComposesMonitors();
             ExportPreservesLargeImage();
             ScrollStitchingPreservesContent();
             ScrollStitchingKeepsOneFooter();

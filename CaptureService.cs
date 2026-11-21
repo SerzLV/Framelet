@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
@@ -25,8 +26,9 @@ internal static class CaptureService
 
     internal static ScreenSnapshot[] CaptureDisplays()
     {
+        var cursor = CursorPosition;
         return Forms.Screen.AllScreens
-            .OrderByDescending(display => display.Bounds.Contains(CursorPosition))
+            .OrderByDescending(display => display.Bounds.Contains(cursor))
             .Select(display => new ScreenSnapshot(display.Bounds, Capture(display.Bounds)))
             .ToArray();
     }
@@ -43,13 +45,11 @@ internal static class CaptureService
             throw new UserFacingException("PickWindow");
         }
 
-        if (Native.DwmGetWindowAttribute(window, 9, out var rect, Marshal.SizeOf<Native.WindowRect>()) != 0
-            && !Native.GetWindowRect(window, out rect))
+        if (!TryGetWindowBounds(window, out var bounds))
         {
             throw new UserFacingException("WindowBoundsFailure");
         }
 
-        var bounds = Drawing.Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
         bounds.Intersect(Forms.SystemInformation.VirtualScreen);
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
@@ -58,6 +58,65 @@ internal static class CaptureService
 
         return Capture(bounds);
     }
+
+    internal static IReadOnlyList<Drawing.Rectangle> GetVisibleWindowBounds()
+    {
+        var windows = new List<Drawing.Rectangle>();
+        var shell = Native.GetShellWindow();
+        Native.EnumWindows((window, _) =>
+        {
+            if (window != shell && Native.IsWindowVisible(window) && !Native.IsIconic(window)
+                && Native.GetWindowTextLength(window) > 0
+                && (Native.GetDwmWindowState(window, 14, out var cloaked, sizeof(int)) != 0 || cloaked == 0)
+                && TryGetWindowBounds(window, out var bounds) && bounds.Width >= 3 && bounds.Height >= 3)
+                windows.Add(bounds);
+            return true;
+        }, IntPtr.Zero);
+        return windows;
+    }
+
+    private static bool TryGetWindowBounds(IntPtr window, out Drawing.Rectangle bounds)
+    {
+        if (Native.DwmGetWindowAttribute(window, 9, out Native.WindowRect rect, Marshal.SizeOf<Native.WindowRect>()) == 0
+            || Native.GetWindowRect(window, out rect))
+        {
+            bounds = Drawing.Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            return true;
+        }
+        bounds = default;
+        return false;
+    }
+
+    internal static BitmapSource CropDisplays(IReadOnlyList<ScreenSnapshot> screens, Drawing.Rectangle selection)
+    {
+        foreach (var screen in screens)
+        {
+            if (screen.Bounds.Contains(selection))
+                return Crop(screen.Image, RelativeRect(selection, screen.Bounds));
+        }
+
+        var stride = checked(selection.Width * 4);
+        var pixels = new byte[checked(stride * selection.Height)];
+        foreach (var screen in screens)
+        {
+            var intersection = Drawing.Rectangle.Intersect(screen.Bounds, selection);
+            if (intersection.Width <= 0 || intersection.Height <= 0)
+                continue;
+
+            var source = screen.Image.Format == PixelFormats.Bgr32
+                ? screen.Image
+                : new FormatConvertedBitmap(screen.Image, PixelFormats.Bgr32, null, 0);
+            var offset = (intersection.Y - selection.Y) * stride + (intersection.X - selection.X) * 4;
+            source.CopyPixels(RelativeRect(intersection, screen.Bounds), pixels, stride, offset);
+        }
+
+        var result = BitmapSource.Create(selection.Width, selection.Height, 96, 96, PixelFormats.Bgr32, null, pixels, stride);
+        result.Freeze();
+        return result;
+    }
+
+    private static Int32Rect RelativeRect(Drawing.Rectangle selection, Drawing.Rectangle relativeTo) =>
+        new(selection.X - relativeTo.X, selection.Y - relativeTo.Y, selection.Width, selection.Height);
 
     internal static BitmapSource Crop(BitmapSource image, Int32Rect selection)
     {
@@ -110,6 +169,20 @@ internal static partial class Native
         internal int Bottom;
     }
 
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal delegate bool WindowEnumerator(IntPtr window, IntPtr state);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool EnumWindows(WindowEnumerator callback, IntPtr state);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextLengthW")]
+    internal static partial int GetWindowTextLength(IntPtr window);
+
+    [LibraryImport("user32.dll")]
+    internal static partial IntPtr GetShellWindow();
+
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool RegisterHotKey(IntPtr window, int id, uint modifiers, uint key);
@@ -138,6 +211,9 @@ internal static partial class Native
 
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmGetWindowAttribute(IntPtr window, uint attribute, out WindowRect rect, int size);
+
+    [LibraryImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")]
+    internal static partial int GetDwmWindowState(IntPtr window, uint attribute, out int value, int size);
 
     [LibraryImport("dwmapi.dll")]
     internal static partial int DwmSetWindowAttribute(IntPtr window, uint attribute, ref int value, int size);

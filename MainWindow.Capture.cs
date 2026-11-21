@@ -345,7 +345,7 @@ public partial class MainWindow
 
     private async Task<BitmapSource?> CaptureScrollingAsync()
     {
-        var selection = await SelectRegionAsync("ScrollSelectionPrompt");
+        var selection = await SelectRegionAsync("ScrollSelectionPrompt", singleDisplay: true);
         if (selection is null)
             return null;
 
@@ -364,16 +364,18 @@ public partial class MainWindow
         }
     }
 
-    private async Task<ScreenSnapshot?> SelectRegionAsync(string promptKey)
+    private async Task<ScreenSnapshot?> SelectRegionAsync(string promptKey, bool singleDisplay = false)
     {
-        var screens = await Task.Run(CaptureService.CaptureDisplays);
-        var completion = new TaskCompletionSource<ScreenSnapshot?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var windows = screens.Select((screen, index) => new SelectionWindow(screen, index == 0, promptKey,
-            (snapshot, region) => completion.TrySetResult(new ScreenSnapshot(
-                new Drawing.Rectangle(snapshot.Bounds.X + region.X, snapshot.Bounds.Y + region.Y, region.Width, region.Height),
-                CaptureService.Crop(snapshot.Image, region))),
+        var (screens, candidates) = await Task.Run(() => (CaptureService.CaptureDisplays(),
+            singleDisplay ? [] : CaptureService.GetVisibleWindowBounds()));
+        var session = new RegionSelection(screens.Select(screen => screen.Bounds).ToArray(), candidates, singleDisplay);
+        session.MovePointer(CaptureService.CursorPosition);
+        var completion = new TaskCompletionSource<Drawing.Rectangle?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var windows = screens.Select((screen, index) => new SelectionWindow(screen, index == 0, promptKey, session,
+            region => completion.TrySetResult(region),
             () => completion.TrySetResult(null))).ToArray();
 
+        Drawing.Rectangle? selection;
         try
         {
             foreach (var window in windows.Reverse())
@@ -381,7 +383,7 @@ public partial class MainWindow
                 window.Closed += (_, _) => completion.TrySetResult(null);
                 window.Show();
             }
-            return await completion.Task;
+            selection = await completion.Task;
         }
         finally
         {
@@ -391,5 +393,8 @@ public partial class MainWindow
                     window.Close();
             }
         }
+        return selection is { } bounds
+            ? await Task.Run(() => new ScreenSnapshot(bounds, CaptureService.CropDisplays(screens, bounds)))
+            : null;
     }
 }

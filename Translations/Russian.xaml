@@ -136,7 +136,8 @@
     <sys:String x:Key="Ui.HistoryDateFormat">dd.MM, HH:mm</sys:String>
     <sys:String x:Key="Ui.HistoryTooltipFormat">dd.MM.yyyy HH:mm</sys:String>
     <sys:String x:Key="Ui.SelectionTitle">Framelet · Выбор области</sys:String>
-    <sys:String x:Key="Ui.SelectionPrompt">Потяните для выбора области   ·   Esc — отмена</sys:String>
+    <sys:String x:Key="Ui.SelectionPrompt">Потяните для выбора области или кликните по окну   ·   Esc — отмена</sys:String>
+    <sys:String x:Key="Ui.SelectionAdjustPrompt">Enter или клик внутри — снять   ·   Стрелки — сдвиг   ·   Esc — отмена</sys:String>
     <sys:String x:Key="Ui.TrayOpen">Открыть Framelet</sys:String>
     <sys:String x:Key="Ui.TrayExit">Выйти</sys:String>
     <sys:String x:Key="Ui.HotkeysOff">Глобальные клавиши отключены.</sys:String>
@@ -230,7 +231,7 @@
     <sys:String x:Key="Ui.HistorySearching">Ищем текст на снимках</sys:String>
     <sys:String x:Key="Ui.HistoryIndexUnavailable">Распознавание текста недоступно. Поиск по имени работает.</sys:String>
     <sys:String x:Key="Ui.CaptureQuickClipboard">Скопировать область</sys:String>
-    <sys:String x:Key="Ui.QuickCapturePrompt">Выделите область, чтобы сразу скопировать её в буфер обмена</sys:String>
+    <sys:String x:Key="Ui.QuickCapturePrompt">Выделите область или кликните по окну для копирования   ·   Esc — отмена</sys:String>
     <sys:String x:Key="Ui.PasteImage">Из буфера</sys:String>
     <sys:String x:Key="Ui.PasteImageTip">Вставить изображение · Ctrl + V</sys:String>
     <sys:String x:Key="Ui.PasteNoImage">В буфере обмена нет изображения</sys:String>

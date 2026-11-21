@@ -10,7 +10,40 @@ namespace Framelet;
 internal sealed class SelectionWindow : Window
 {
     internal SelectionWindow(ScreenSnapshot snapshot, bool activate, string promptKey,
-        Action<ScreenSnapshot, Int32Rect> selected, Action canceled, Int32Rect? extension = null)
+        RegionSelection session, Action<Drawing.Rectangle> selected, Action canceled)
+        : this(snapshot, activate, new SelectionSurface(snapshot, UiText.Get(promptKey), canceled, session, selected), canceled)
+    {
+        PreviewKeyDown += (_, e) =>
+        {
+            if (session.IsDragging || session.Selection is not { } region)
+                return;
+
+            var step = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? 10 : 1;
+            var delta = e.Key switch
+            {
+                Key.Left => new Drawing.Point(-step, 0),
+                Key.Right => new Drawing.Point(step, 0),
+                Key.Up => new Drawing.Point(0, -step),
+                Key.Down => new Drawing.Point(0, step),
+                _ => Drawing.Point.Empty
+            };
+            if (e.Key == Key.Enter)
+                selected(region);
+            else if (!delta.IsEmpty)
+                session.Nudge(delta.X, delta.Y);
+            else
+                return;
+            e.Handled = true;
+        };
+    }
+
+    internal SelectionWindow(ScreenSnapshot snapshot, string promptKey,
+        Action<Int32Rect> selected, Action canceled, Int32Rect extension)
+        : this(snapshot, true, new SelectionSurface(snapshot, UiText.Get(promptKey), canceled, extension, selected), canceled)
+    {
+    }
+
+    private SelectionWindow(ScreenSnapshot snapshot, bool activate, SelectionSurface surface, Action canceled)
     {
         Title = UiText.Get("SelectionTitle");
         WindowStyle = WindowStyle.None;
@@ -20,7 +53,7 @@ internal sealed class SelectionWindow : Window
         ShowActivated = activate;
         Topmost = true;
         Background = Brushes.Black;
-        Content = new SelectionSurface(snapshot, UiText.Get(promptKey), region => selected(snapshot, region), canceled, extension);
+        Content = surface;
         var bounds = snapshot.Bounds;
         Width = bounds.Width;
         Height = bounds.Height;
@@ -53,19 +86,34 @@ internal sealed class SelectionSurface : FrameworkElement
     private static readonly Pen DarkPen = FrozenPen(Brush("#B0182421"), 3);
     private readonly ScreenSnapshot _snapshot;
     private readonly string _prompt;
-    private readonly Action<Int32Rect> _selected;
     private readonly Action _canceled;
+    private readonly RegionSelection? _session;
+    private readonly Action<Drawing.Rectangle>? _selected;
+    private readonly Action<Int32Rect>? _tailSelected;
     private readonly Int32Rect? _extension;
-    private Point? _pointer;
-    private Point? _start;
+    private Point? _tailPointer;
 
-    internal SelectionSurface(ScreenSnapshot snapshot, string prompt, Action<Int32Rect> selected, Action canceled, Int32Rect? extension = null)
+    internal SelectionSurface(ScreenSnapshot snapshot, string prompt, Action canceled,
+        RegionSelection session, Action<Drawing.Rectangle> selected) : this(snapshot, prompt, canceled)
+    {
+        _session = session;
+        _selected = selected;
+        Loaded += (_, _) => session.Changed += InvalidateVisual;
+        Unloaded += (_, _) => session.Changed -= InvalidateVisual;
+    }
+
+    internal SelectionSurface(ScreenSnapshot snapshot, string prompt, Action canceled,
+        Int32Rect extension, Action<Int32Rect> selected) : this(snapshot, prompt, canceled)
+    {
+        _extension = extension;
+        _tailSelected = selected;
+    }
+
+    private SelectionSurface(ScreenSnapshot snapshot, string prompt, Action canceled)
     {
         _snapshot = snapshot;
         _prompt = prompt;
-        _selected = selected;
         _canceled = canceled;
-        _extension = extension;
         Focusable = true;
         Cursor = Cursors.Cross;
         ClipToBounds = true;
@@ -75,7 +123,10 @@ internal sealed class SelectionSurface : FrameworkElement
             var position = CaptureService.CursorPosition;
             if (snapshot.Bounds.Contains(position))
             {
-                _pointer = PointFromScreen(new Point(position.X, position.Y));
+                if (_session is { } session)
+                    session.MovePointer(position);
+                else
+                    _tailPointer = PointFromScreen(new Point(position.X, position.Y));
                 Keyboard.Focus(this);
                 InvalidateVisual();
             }
@@ -87,30 +138,36 @@ internal sealed class SelectionSurface : FrameworkElement
         if (!CaptureMouse())
             return;
 
-        _start = _pointer = Clamp(e.GetPosition(this));
-        InvalidateVisual();
+        if (_session is { } session)
+            session.Begin(CaptureService.CursorPosition);
         e.Handled = true;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        _pointer = Clamp(e.GetPosition(this));
-        InvalidateVisual();
+        if (_session is { } session)
+            session.MovePointer(CaptureService.CursorPosition);
+        else
+        {
+            _tailPointer = e.GetPosition(this);
+            InvalidateVisual();
+        }
     }
 
     protected override void OnMouseLeave(MouseEventArgs e)
     {
-        if (_start is not null)
-            return;
-
-        _pointer = null;
-        InvalidateVisual();
+        if (_session is { } session)
+            session.MovePointer(CaptureService.CursorPosition);
+        else if (!IsMouseCaptured)
+        {
+            _tailPointer = null;
+            InvalidateVisual();
+        }
     }
 
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
-        _start = null;
-        InvalidateVisual();
+        _session?.CancelDrag();
     }
 
     protected override void OnMouseRightButtonDown(MouseButtonEventArgs e)
@@ -121,16 +178,19 @@ internal sealed class SelectionSurface : FrameworkElement
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
-        if (_start is not { } start)
+        if (!IsMouseCaptured)
             return;
 
-        var end = Clamp(e.GetPosition(this));
-        _start = null;
+        var confirmed = _session?.End(CaptureService.CursorPosition);
         ReleaseMouseCapture();
-        InvalidateVisual();
-        var region = _extension is { } range ? ExtensionAt(range, end) : PhysicalRect(new Rect(start, end));
-        if (region.Width >= 3 && region.Height >= 3)
-            _selected(region);
+        if (confirmed is { } region)
+            _selected?.Invoke(region);
+        if (_extension is { } range)
+        {
+            var strip = ExtensionAt(range, e.GetPosition(this));
+            if (strip.Width >= 3 && strip.Height >= 3)
+                _tailSelected?.Invoke(strip);
+        }
 
         e.Handled = true;
     }
@@ -144,55 +204,66 @@ internal sealed class SelectionSurface : FrameworkElement
         drawing.DrawImage(_snapshot.Image, bounds);
         if (_extension is { } extension)
         {
-            var strip = _pointer is { } pointer ? ExtensionAt(extension, pointer) : extension with { Height = 0 };
+            var strip = _tailPointer is { } pointer ? ExtensionAt(extension, pointer) : extension with { Height = 0 };
             var xScale = bounds.Width / _snapshot.Bounds.Width;
             var yScale = bounds.Height / _snapshot.Bounds.Height;
             var selection = new Rect(strip.X * xScale, strip.Y * yScale, strip.Width * xScale, strip.Height * yScale);
-            DrawSelection(drawing, bounds, selection);
+            DrawSelection(drawing, bounds, selection, selection);
             drawing.DrawLine(SelectionPen, selection.TopLeft, selection.TopRight);
-            DrawPrompt(drawing, bounds);
+            DrawPrompt(drawing, bounds, _prompt);
             return;
         }
-        if (_pointer is not { } position)
+
+        var session = _session!;
+        var cursorHere = _snapshot.Bounds.Contains(session.Pointer);
+        var preview = session.Preview;
+        if (preview is { } region && region.IntersectsWith(_snapshot.Bounds))
         {
+            var outline = LocalRect(region);
+            var selection = Rect.Intersect(outline, bounds);
+            DrawSelection(drawing, bounds, selection, outline);
+            if (session.IsDragging || session.Selection is not null)
+            {
+                foreach (var corner in new[] { outline.TopLeft, outline.TopRight, outline.BottomLeft, outline.BottomRight })
+                    drawing.DrawRectangle(Accent, null, new Rect(corner.X - 2.5, corner.Y - 2.5, 5, 5));
+                if (cursorHere)
+                {
+                    var text = Text($"{region.Width} × {region.Height}", 12, Ink);
+                    DrawBadge(drawing, text, new Point(selection.Left, Math.Max(62, selection.Top - 28)), Accent);
+                }
+            }
+        }
+        else
             drawing.DrawRectangle(Shade, null, bounds);
-            return;
-        }
 
-        if (_start is { } start)
+        if (!cursorHere || session.IsDragging)
+            return;
+
+        if (preview is null)
         {
-            var selection = new Rect(start, position);
-            DrawSelection(drawing, bounds, selection);
-            foreach (var corner in new[] { selection.TopLeft, selection.TopRight, selection.BottomLeft, selection.BottomRight })
-                drawing.DrawRectangle(Accent, null, new Rect(corner.X - 2.5, corner.Y - 2.5, 5, 5));
-
-            var pixels = PhysicalRect(selection);
-            var text = Text($"{pixels.Width} × {pixels.Height}", 12, Ink);
-            DrawBadge(drawing, text, new Point(selection.Left, selection.Top > 32 ? selection.Top - 30 : selection.Bottom + 6), Accent);
-            return;
+            var position = PointFromScreen(new Point(session.Pointer.X, session.Pointer.Y));
+            drawing.DrawLine(CrosshairPen, new Point(0, position.Y), new Point(Math.Max(0, position.X - 9), position.Y));
+            drawing.DrawLine(CrosshairPen, new Point(Math.Min(bounds.Width, position.X + 9), position.Y), new Point(bounds.Width, position.Y));
+            drawing.DrawLine(CrosshairPen, new Point(position.X, 0), new Point(position.X, Math.Max(0, position.Y - 9)));
+            drawing.DrawLine(CrosshairPen, new Point(position.X, Math.Min(bounds.Height, position.Y + 9)), new Point(position.X, bounds.Height));
+            DrawMagnifier(drawing, position);
         }
-
-        drawing.DrawRectangle(Shade, null, bounds);
-        drawing.DrawLine(CrosshairPen, new Point(0, position.Y), new Point(Math.Max(0, position.X - 9), position.Y));
-        drawing.DrawLine(CrosshairPen, new Point(Math.Min(bounds.Width, position.X + 9), position.Y), new Point(bounds.Width, position.Y));
-        drawing.DrawLine(CrosshairPen, new Point(position.X, 0), new Point(position.X, Math.Max(0, position.Y - 9)));
-        drawing.DrawLine(CrosshairPen, new Point(position.X, Math.Min(bounds.Height, position.Y + 9)), new Point(position.X, bounds.Height));
-        DrawMagnifier(drawing, position);
-        DrawPrompt(drawing, bounds);
+        DrawPrompt(drawing, bounds, session.Selection is null ? _prompt : UiText.Get("SelectionAdjustPrompt"));
     }
 
-    private static void DrawSelection(DrawingContext drawing, Rect bounds, Rect selection)
+    private static void DrawSelection(DrawingContext drawing, Rect bounds, Rect selection, Rect outline)
     {
         drawing.DrawRectangle(Shade, null, new Rect(0, 0, bounds.Width, selection.Top));
         drawing.DrawRectangle(Shade, null, new Rect(0, selection.Bottom, bounds.Width, Math.Max(0, bounds.Height - selection.Bottom)));
         drawing.DrawRectangle(Shade, null, new Rect(0, selection.Top, selection.Left, selection.Height));
         drawing.DrawRectangle(Shade, null, new Rect(selection.Right, selection.Top, Math.Max(0, bounds.Width - selection.Right), selection.Height));
-        drawing.DrawRectangle(null, SelectionPen, selection);
+        drawing.DrawRectangle(null, SelectionPen, outline);
     }
 
-    private void DrawPrompt(DrawingContext drawing, Rect bounds)
+    private void DrawPrompt(DrawingContext drawing, Rect bounds, string message)
     {
-        var prompt = Text(_prompt, 14, Brushes.White);
+        var prompt = Text(message, 14, Brushes.White);
+        prompt.MaxTextWidth = Math.Max(1, bounds.Width - 36);
         DrawBadge(drawing, prompt, new Point((bounds.Width - prompt.Width - 18) / 2, 24), Panel);
     }
 
@@ -227,20 +298,12 @@ internal sealed class SelectionSurface : FrameworkElement
         drawing.DrawRoundedRectangle(null, SelectionPen, lens, 7, 7);
     }
 
-    private Point Clamp(Point point)
+    private Rect LocalRect(Drawing.Rectangle region)
     {
-        return new Point(Math.Clamp(point.X, 0, ActualWidth), Math.Clamp(point.Y, 0, ActualHeight));
-    }
-
-    private Int32Rect PhysicalRect(Rect rect)
-    {
-        var xRatio = _snapshot.Bounds.Width / ActualWidth;
-        var yRatio = _snapshot.Bounds.Height / ActualHeight;
-        var left = Math.Clamp((int)Math.Floor(rect.Left * xRatio), 0, _snapshot.Bounds.Width);
-        var top = Math.Clamp((int)Math.Floor(rect.Top * yRatio), 0, _snapshot.Bounds.Height);
-        var right = Math.Clamp((int)Math.Ceiling(rect.Right * xRatio), left, _snapshot.Bounds.Width);
-        var bottom = Math.Clamp((int)Math.Ceiling(rect.Bottom * yRatio), top, _snapshot.Bounds.Height);
-        return new Int32Rect(left, top, right - left, bottom - top);
+        var x = ActualWidth / _snapshot.Bounds.Width;
+        var y = ActualHeight / _snapshot.Bounds.Height;
+        return new Rect((region.Left - _snapshot.Bounds.Left) * x, (region.Top - _snapshot.Bounds.Top) * y,
+            region.Width * x, region.Height * y);
     }
 
     private FormattedText Text(string value, double size, Brush brush)

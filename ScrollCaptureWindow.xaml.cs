@@ -309,8 +309,8 @@ internal partial class ScrollCaptureWindow : Window
     private static async Task<Int32Rect?> SelectTailAsync(ScreenSnapshot snapshot, Int32Rect extension)
     {
         var pending = new TaskCompletionSource<Int32Rect?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var overlay = new SelectionWindow(snapshot, true, "ScrollTailPrompt",
-            (_, region) => pending.TrySetResult(region), () => pending.TrySetResult(null), extension);
+        var overlay = new SelectionWindow(snapshot, "ScrollTailPrompt",
+            region => pending.TrySetResult(region), () => pending.TrySetResult(null), extension);
         var closed = false;
         overlay.Closed += (_, _) =>
         {

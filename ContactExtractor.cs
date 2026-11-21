@@ -32,6 +32,9 @@ internal static partial class ContactExtractor
 
         var normalized = PhonePunctuation().Replace(text, match =>
             match.Value[0] is '\u00A0' or '\u2007' or '\u202F' ? " " : match.Value[0] == '\uFF0B' ? "+" : "-");
+        // Keep OCR offsets intact and prevent the matcher from joining digits across a date range.
+        normalized = YearRange().Replace(normalized, match =>
+            HasPhonePrefix(normalized, match.Index) ? match.Value : new string('|', match.Length));
         var validated = new HashSet<int>();
         foreach (var match in PhoneNumbers.FindNumbers(normalized, region, PhoneNumberUtil.Leniency.VALID, 120))
         {
@@ -93,6 +96,21 @@ internal static partial class ContactExtractor
         {
             contacts.Add(new ContactMatch(new RecognizedContact(kind, value), identity, start, length));
         }
+    }
+
+    private static bool HasPhonePrefix(string text, int start)
+    {
+        var lineStart = start > 0 ? text.LastIndexOf('\n', start - 1) + 1 : 0;
+        var prefix = text.AsSpan(lineStart, start - lineStart);
+        if (InternationalPrefix().IsMatch(prefix))
+            return true;
+
+        foreach (var label in PhoneLabel().EnumerateMatches(prefix))
+        {
+            if (prefix[(label.Index + label.Length)..].Trim(" \t:.-").IsEmpty)
+                return true;
+        }
+        return false;
     }
 
     private static string? RepairPhoneDigits(string raw)
@@ -205,6 +223,13 @@ internal static partial class ContactExtractor
 
     [GeneratedRegex(@"[\u00A0\u2007\u202F\u2010-\u2015\u2212\uFF0B]", RegexOptions.None, 250)]
     private static partial Regex PhonePunctuation();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}+])(?:18|19|20|21)[0-9]{2}[ \t]*-[ \t]*(?:18|19|20|21)[0-9]{2}(?![\p{L}\p{N}])",
+        RegexOptions.CultureInvariant, 250)]
+    private static partial Regex YearRange();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])(?:\+|00)[0-9]{1,3}[ .-]+$", RegexOptions.CultureInvariant, 250)]
+    private static partial Regex InternationalPrefix();
 
     [GeneratedRegex(@"(?<![\p{L}\p{N}])(?:телефон|тел\.?|мобильный|моб\.|phone|mobile|cell|tel\.?|fax|whatsapp|tālrunis|talrunis)(?!\p{L})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 250)]
     private static partial Regex PhoneLabel();

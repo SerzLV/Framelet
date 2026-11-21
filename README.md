@@ -6,7 +6,7 @@
 
 **Capture screenshots, add annotations, and copy text from images on Windows.**
 
-Press `Print Screen`, select an area, and paste the screenshot straight into a chat or document. Open the editor to point out a detail with a curved arrow, select text directly on the image, or cover contact details before sharing.
+Press `Print Screen`, drag an area or click a highlighted window, then press `Enter` or click inside the selection to copy it. An area can span monitors. Use the arrow keys to move it by one pixel or hold `Shift` to move it by ten. Open the editor to point out a detail with a curved arrow, select text directly on the image, or cover contact details before sharing.
 
 [**Download Framelet for Windows x64**](https://github.com/SerzLV/Framelet/releases/latest). Run `Framelet.exe` or use the ZIP bundle with license notices. The .NET Desktop Runtime is included.
 
@@ -73,7 +73,7 @@ Framelet uses a Windows keyboard hook to handle plain `Print Screen` while the a
 ## Capture a long page
 
 1. Open the page and press `Ctrl + Shift + 4`.
-2. Select the part of the page that scrolls, leaving out fixed bars and the scrollbar. Framelet captures the first frame immediately.
+2. Select the scrolling area on one monitor, leaving out fixed bars and the scrollbar. Press `Enter` to capture the first frame.
 3. Click **Auto-scroll** and let the page reach the bottom, or click **Stop** when you have enough. Drag the panel by its title to move it. Scrolling resumes when you release it.
 4. At the bottom of a page in Edge, Framelet can include visible content below your selection automatically. Use **Adjust bottom** to trim it, or **Extend bottom** if Framelet asks you to choose the edge.
 5. Click **Open screenshot** to inspect the stitched image and add annotations.
