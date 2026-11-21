@@ -53,6 +53,7 @@ public partial class MainWindow : Window
         StrokeSize.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((_, _) => EditorImage.StartStrokeAdjustment()));
         StrokeSize.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) => EditorImage.CompleteStrokeAdjustment()));
         _editSaveTimer.Tick += EditSaveTimer_Tick;
+        _historyDragScrollTimer.Tick += HistoryDragScroll_Tick;
         SelectTool(EditorTool.Arrow);
         InitializeAppearance();
         EditorChanged();
@@ -109,6 +110,7 @@ public partial class MainWindow : Window
         CancelOcrRequest();
         _appearanceSaveTimer.Stop();
         _editSaveTimer.Stop();
+        FinishHistoryGesture(cancel: true);
         DetachCaptureCommands();
         foreach (var pin in _pins.ToArray())
             pin.Close();
@@ -587,13 +589,25 @@ public partial class MainWindow : Window
         if (IsCropping && HandleCropKey(e))
             return;
 
+        if (_historyGesture is not null && e.Key == Key.Escape)
+        {
+            FinishHistoryGesture(cancel: true);
+            e.Handled = true;
+            return;
+        }
+        if (IsDraggingHistorySelection && e.Key == Key.Delete)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (IsSelectingHistory && HomeView.IsVisible && HomeView.IsEnabled && Keyboard.Modifiers == ModifierKeys.None)
         {
             if (e.Key == Key.Escape && (!HistorySearch.IsKeyboardFocusWithin || HistorySearch.Text.Length == 0))
             {
                 e.Handled = true;
                 HistorySelectionToggle.IsChecked = false;
-                _selectedHistoryPaths.Clear();
+                ClearHistorySelection();
                 UpdateHistorySelection();
                 HistorySelectionToggle.Focus();
                 return;

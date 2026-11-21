@@ -27,6 +27,7 @@ public partial class MainWindow
         var top = HistoryHeader.TranslatePoint(new Point(), HomeView).Y - HistoryHeaderOffset.Y;
         HistoryHeaderOffset.Y = Math.Max(0, -top);
         RequestHistoryLayout();
+        UpdateHistoryMarquee();
     }
 
     private void OpenHistoryMenu_Click(object sender, RoutedEventArgs e)
@@ -54,12 +55,10 @@ public partial class MainWindow
             return;
 
         var item = card.Item;
-        if (IsSelectingHistory || Keyboard.Modifiers == ModifierKeys.Control)
+        var modifiers = Keyboard.Modifiers;
+        if (IsSelectingHistory || (modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) != 0)
         {
-            HistorySelectionToggle.IsChecked = true;
-            if (!_selectedHistoryPaths.Add(item.FilePath))
-                _selectedHistoryPaths.Remove(item.FilePath);
-            UpdateHistorySelection();
+            SelectHistoryCard(item, modifiers);
             return;
         }
 
@@ -94,7 +93,7 @@ public partial class MainWindow
     private void HistorySelectionToggle_Click(object sender, RoutedEventArgs e)
     {
         if (!IsSelectingHistory)
-            _selectedHistoryPaths.Clear();
+            ClearHistorySelection();
         UpdateHistorySelection();
     }
 
@@ -159,7 +158,8 @@ public partial class MainWindow
         });
     }
 
-    private HistoryCardSelection GetHistoryCardSelection(HistoryItem item) => !IsSelectingHistory ? HistoryCardSelection.Inactive
+    private HistoryCardSelection GetHistoryCardSelection(HistoryItem item) => !IsSelectingHistory && !IsDraggingHistorySelection
+        ? HistoryCardSelection.Inactive
         : _selectedHistoryPaths.Contains(item.FilePath) ? HistoryCardSelection.Selected : HistoryCardSelection.Unselected;
 
     private void UpdateHistorySelection()
@@ -314,6 +314,9 @@ public partial class MainWindow
                 || entry.FileName.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || (_historyText.TryGetValue(entry, out var text) && text.Contains(contentQuery, StringComparison.OrdinalIgnoreCase))).ToArray()
             : _recent;
+        if (_historyGesture is not null && !ReferenceEquals(_filteredHistory, visible)
+            && !_filteredHistory.SequenceEqual(visible, ReferenceEqualityComparer.Instance))
+            FinishHistoryGesture(cancel: true);
         _filteredHistory = visible;
         if (_selectedHistoryPaths.Count > 0)
             _selectedHistoryPaths.IntersectWith(visible.Select(item => item.FilePath));
@@ -345,6 +348,8 @@ public partial class MainWindow
 
     private void HistoryVisibility_Changed(object sender, DependencyPropertyChangedEventArgs e)
     {
+        if (!HomeView.IsVisible)
+            FinishHistoryGesture(cancel: true);
         RequestHistoryLayout();
         UpdateHistoryIndex();
     }

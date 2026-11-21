@@ -16,6 +16,7 @@ internal static partial class Program
             HistoryPreservesFiles(directory.FullName);
             HistoryCleansUnreferencedJournals(directory.FullName);
             HistoryViewportIncludesLastRow();
+            HistoryMarqueeIntersectsCards();
             OcrCacheTracksImageChanges(directory.FullName);
             DrawingPreferencesRememberColorAndStroke(directory.FullName);
             LanguageFollowsSystem();
@@ -184,6 +185,19 @@ internal static partial class Program
             "Scrolling to the end reaches the oldest item in a 20,001-item history");
         Require(last.Before + Math.Ceiling((double)last.Count / columns) * HistoryViewport.TileHeight == extent,
             "Unrealized rows preserve the full scroll extent");
+    }
+
+    private static void HistoryMarqueeIntersectsCards()
+    {
+        var width = HistoryViewport.TileWidth * 3 + 20;
+        Require(HistoryViewport.IntersectingCards(8, width, new Rect(210, 150, 70, 265)).SequenceEqual([0, 1, 3, 4, 6, 7]),
+            "History marquee selects the intersected columns in each row, including the partial final row");
+        Require(!HistoryViewport.IntersectingCards(8, width, new Rect(222, 4, 7, 500)).Any()
+            && !HistoryViewport.IntersectingCards(8, width, new Rect(4, 161, 600, 8)).Any(),
+            "History marquee does not select cards when it covers only the gutters");
+        var laterRow = new Rect(0, 4200 * HistoryViewport.TileHeight + 5, 230, 9);
+        Require(HistoryViewport.IntersectingCards(20_001, HistoryViewport.TileWidth * 4 + 10, laterRow).SequenceEqual([16_800]),
+            "History marquee addresses the same cards whether their row has been realized or not");
     }
 
     private static void OcrCacheTracksImageChanges(string root)
