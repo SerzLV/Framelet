@@ -125,7 +125,10 @@ internal sealed class SelectionEditingSession : IDisposable
             }
         }
         else if (modifiers == ModifierKeys.None && e.Key == Key.Enter)
-            Output(SelectionOutput.Copy);
+        {
+            if (!e.IsRepeat)
+                Output(SelectionOutput.Copy);
+        }
         else if (modifiers == ModifierKeys.None && e.Key == Key.Delete)
             Delete();
         else if (modifiers == ModifierKeys.None && EditorSurface.ToolForKey(e.Key) is { } tool && tool != EditorTool.Hand)
@@ -206,6 +209,7 @@ internal sealed class SelectionEditingSession : IDisposable
         _editing = true;
         _selection.SetLocked(true);
         canvas.ShowCanvas();
+        _toolbar.Owner = canvas;
         _toolbar.Reposition();
         RefreshTools();
     }
@@ -229,6 +233,7 @@ internal sealed class SelectionEditingSession : IDisposable
             return;
         _editing = false;
         canvas.Editor.CancelDraft();
+        _toolbar.Owner = null;
         canvas.Hide();
         _toolbar.Activate();
         _selection.SetLocked(_busy);
@@ -360,6 +365,9 @@ internal sealed class SelectionEditingSession : IDisposable
         _hadMarks = false;
         canvas.Editor.Changed -= EditorChanged;
         canvas.Editor.SelectionChanged -= RefreshTools;
+        // The toolbar can outlive the canvas when the selection changes.
+        if (_toolbar.Owner == canvas)
+            _toolbar.Owner = null;
         canvas.Close();
         RefreshTools();
     }
