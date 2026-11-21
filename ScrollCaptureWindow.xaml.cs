@@ -504,7 +504,7 @@ internal partial class ScrollCaptureWindow : Window
         TailButton.Visibility = _canAddTail ? Visibility.Visible : Visibility.Collapsed;
         TailButton.IsEnabled = !_capturing && !_autoScrolling && !_atLimit;
         TailButton.SetResourceReference(ContentControl.ContentProperty, UiText.Key(_tailAdded ? "ScrollTailAdjust" : "ScrollTailAdd"));
-        AutoScrollLabel.SetResourceReference(TextBlock.TextProperty, UiText.Key(_autoScrolling ? "ScrollAutoStop" : "ScrollAuto"));
+        AutoScrollButton.SetResourceReference(ContentControl.ContentProperty, UiText.Key(_autoScrolling ? "ScrollAutoStop" : "ScrollAuto"));
         UpdateToolTips();
     }
 

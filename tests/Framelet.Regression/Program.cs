@@ -26,6 +26,7 @@ internal static partial class Program
             ScrollStitchingPreservesContent();
             ScrollStitchingKeepsOneFooter();
             PrintScreenHookRestarts();
+            PrimaryButtonsKeepTheirForeground();
         }
         finally
         {

@@ -4,7 +4,7 @@
         x:ClassModifier="internal" Title="{DynamicResource Ui.CaptureScrolling}"
         Width="420" SizeToContent="Height" ShowActivated="False" Topmost="True" ShowInTaskbar="False"
         WindowStartupLocation="Manual" WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True"
-        Background="Transparent" UseLayoutRounding="True" PreviewKeyDown="OnPreviewKeyDown">
+        Background="Transparent" Foreground="{StaticResource Text}" UseLayoutRounding="True" PreviewKeyDown="OnPreviewKeyDown">
     <Border Padding="14,12" CornerRadius="12" Background="{StaticResource Panel}" BorderBrush="{StaticResource Stroke}" BorderThickness="1">
         <StackPanel>
             <DockPanel>
@@ -41,10 +41,8 @@
                 <Button x:Name="FinishButton" Content="{DynamicResource Ui.ScrollFinish}" Click="Finish_Click" Margin="0,0,7,0"/>
                 <Button x:Name="AddFrame" Content="{DynamicResource Ui.ScrollAddFrame}" Click="AddFrame_Click" Margin="0,0,7,0"/>
                 <Button x:Name="AutoScrollButton" Style="{StaticResource PrimaryButton}" Click="AutoScroll_Click" MinWidth="116"
-                        AutomationProperties.Name="{Binding Text, ElementName=AutoScrollLabel}">
+                        Content="{DynamicResource Ui.ScrollAuto}">
                     <Button.ToolTip><ToolTip Content="{DynamicResource Ui.ScrollAutoTip}"/></Button.ToolTip>
-                    <TextBlock x:Name="AutoScrollLabel" Text="{DynamicResource Ui.ScrollAuto}"
-                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
             </WrapPanel>
         </StackPanel>

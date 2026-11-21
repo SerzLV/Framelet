@@ -5,6 +5,7 @@
         xmlns:local="clr-namespace:Framelet"
         Title="Framelet" Icon="Assets/Framelet.ico" Width="1024" Height="754"
         MinWidth="875" MinHeight="615" WindowStartupLocation="CenterScreen" UseLayoutRounding="True"
+        Foreground="{StaticResource Text}"
         PreviewKeyDown="OnPreviewKeyDown" StateChanged="OnStateChanged">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" CornerRadius="10" ResizeBorderThickness="6" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
@@ -636,10 +637,7 @@
                         <Button Style="{StaticResource GhostButton}" Height="29" Padding="9,3" Click="CancelCrop_Click"
                                 Content="{DynamicResource Ui.Cancel}" Margin="0,0,5,0"/>
                         <Button x:Name="CropApplyButton" Style="{StaticResource PrimaryButton}" Height="29" Padding="10,3" Click="ApplyCrop_Click"
-                                AutomationProperties.Name="{DynamicResource Ui.CropAction}">
-                            <TextBlock Text="{DynamicResource Ui.CropAction}"
-                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        </Button>
+                                Content="{DynamicResource Ui.CropAction}"/>
                     </StackPanel>
                     <TextBlock Style="{StaticResource MutedText}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                Text="{DynamicResource Ui.CropHint}" Margin="2,0,10,0"/>
