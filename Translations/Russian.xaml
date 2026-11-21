@@ -137,7 +137,7 @@
     <sys:String x:Key="Ui.HistoryTooltipFormat">dd.MM.yyyy HH:mm</sys:String>
     <sys:String x:Key="Ui.SelectionTitle">Framelet · Выбор области</sys:String>
     <sys:String x:Key="Ui.SelectionPrompt">Потяните для выбора области или кликните по окну   ·   Esc — отмена</sys:String>
-    <sys:String x:Key="Ui.SelectionAdjustPrompt">Enter или клик внутри — снять   ·   Стрелки — сдвиг   ·   Esc — отмена</sys:String>
+    <sys:String x:Key="Ui.SelectionAdjustPrompt">Тяните за углы   ·   Стрелки — сдвиг   ·   Enter или клик внутри — снять   ·   Esc — отмена</sys:String>
     <sys:String x:Key="Ui.TrayOpen">Открыть Framelet</sys:String>
     <sys:String x:Key="Ui.TrayExit">Выйти</sys:String>
     <sys:String x:Key="Ui.HotkeysOff">Глобальные клавиши отключены.</sys:String>

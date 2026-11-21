@@ -51,6 +51,69 @@ internal static partial class Program
         Require(scrolling.Selection?.Right == 0, "Keyboard adjustment also respects scrolling capture's monitor bounds");
     }
 
+    private static void RegionSelectionResizesFromCorners()
+    {
+        var left = new Drawing.Rectangle(-160, -20, 160, 140);
+        var right = new Drawing.Rectangle(0, 0, 180, 150);
+        var original = new Drawing.Rectangle(-30, 20, 50, 40);
+        var hitRadius = new Drawing.Size(9, 9);
+
+        foreach (var (corner, expected) in new[]
+        {
+            (SelectionCorner.TopLeft, Drawing.Rectangle.FromLTRB(-25, 27, 20, 60)),
+            (SelectionCorner.TopRight, Drawing.Rectangle.FromLTRB(-30, 27, 25, 60)),
+            (SelectionCorner.BottomLeft, Drawing.Rectangle.FromLTRB(-25, 20, 20, 67)),
+            (SelectionCorner.BottomRight, Drawing.Rectangle.FromLTRB(-30, 20, 25, 67))
+        })
+        {
+            var session = CreateSelection();
+            var grip = RegionSelection.CornerPosition(original, corner);
+            grip.Offset(2, -2);
+            var hit = session.CornerAt(grip, hitRadius);
+            session.Begin(grip, hit);
+            var target = new Drawing.Point(grip.X + 5, grip.Y + 7);
+            session.MovePointer(target);
+            Require(hit == corner && session.Preview == expected && session.Selection == original,
+                $"Dragging {corner} previews the resize without jumping or moving the opposite corner");
+            Require(session.End(target) is null && session.Selection == expected && session.ResizeCorner is null,
+                $"Releasing {corner} keeps the resized selection available for adjustment");
+        }
+
+        var across = CreateSelection();
+        var upperLeft = original.Location;
+        across.Begin(upperLeft, across.CornerAt(upperLeft, hitRadius));
+        var pastOpposite = new Drawing.Point(75, 100);
+        across.MovePointer(pastOpposite);
+        Require(across.Preview == new Drawing.Rectangle(17, 57, 3, 3),
+            "A corner can cross a monitor seam and stops at the minimum size before the opposite corner");
+        across.CancelDrag();
+        Require(across.Selection == original && across.Preview == original && across.ResizeCorner is null,
+            "Losing mouse capture restores the original rectangle");
+        across.Begin(upperLeft, across.CornerAt(upperLeft, hitRadius));
+        Require(across.End(upperLeft) is null && across.Selection == original, "Clicking a corner does not take a screenshot");
+        var center = new Drawing.Point(-5, 40);
+        across.Begin(center, across.CornerAt(center, hitRadius));
+        Require(across.End(center) == original, "Clicking inside the selection still confirms the screenshot");
+
+        var scroll = new RegionSelection([left, right], [], singleDisplay: true);
+        scroll.Begin(new Drawing.Point(-60, 20));
+        scroll.End(new Drawing.Point(0, 60));
+        var bottomRight = new Drawing.Point(-1, 60);
+        var edgeGrip = scroll.CornerAt(bottomRight, hitRadius);
+        scroll.Begin(bottomRight, edgeGrip);
+        scroll.End(new Drawing.Point(80, 150));
+        Require(edgeGrip == SelectionCorner.BottomRight && scroll.Selection == new Drawing.Rectangle(-60, 20, 60, 100),
+            "Resizing a scrolling capture respects its monitor bounds, even at an edge");
+
+        RegionSelection CreateSelection()
+        {
+            var selection = new RegionSelection([left, right], [], singleDisplay: false);
+            selection.Begin(original.Location);
+            selection.End(new Drawing.Point(original.Right, original.Bottom));
+            return selection;
+        }
+    }
+
     private static void RegionCaptureComposesMonitors()
     {
         var left = SyntheticDisplay(new Drawing.Rectangle(-12, 2, 12, 7), 40, 96);

@@ -20,6 +20,7 @@ internal static partial class Program
             LanguageFollowsSystem();
             OcrDistinguishesYearsFromPhones();
             RegionSelectionUsesDesktopCoordinates();
+            RegionSelectionResizesFromCorners();
             RegionCaptureComposesMonitors();
             ExportPreservesLargeImage();
             ScrollStitchingPreservesContent();

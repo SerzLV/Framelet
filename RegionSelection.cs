@@ -2,9 +2,18 @@ using Drawing = System.Drawing;
 
 namespace Framelet;
 
+internal enum SelectionCorner
+{
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight
+}
+
 internal sealed class RegionSelection
 {
     private const int MinimumSize = 3;
+    private static readonly SelectionCorner[] CornerOrder = Enum.GetValues<SelectionCorner>();
     private readonly IReadOnlyList<Drawing.Rectangle> _displays;
     private readonly IReadOnlyList<Drawing.Rectangle> _windows;
     private readonly bool _singleDisplay;
@@ -25,8 +34,10 @@ internal sealed class RegionSelection
     }
 
     internal event Action? Changed;
+    internal static ReadOnlySpan<SelectionCorner> Corners => CornerOrder;
     internal Drawing.Point Pointer { get; private set; }
     internal Drawing.Rectangle? Selection { get; private set; }
+    internal SelectionCorner? ResizeCorner { get; private set; }
     internal bool IsDragging => _anchor.HasValue;
 
     internal Drawing.Rectangle? Preview
@@ -35,7 +46,7 @@ internal sealed class RegionSelection
         {
             if (_anchor is { } start)
             {
-                var draft = FromPoints(start, Clamp(Pointer, _dragLimits));
+                var draft = Draft(start, Pointer);
                 return IsSelectable(draft) ? draft : Selection;
             }
             return Selection ?? WindowAt(Pointer);
@@ -52,13 +63,14 @@ internal sealed class RegionSelection
         Changed?.Invoke();
     }
 
-    internal void Begin(Drawing.Point point)
+    internal void Begin(Drawing.Point point, SelectionCorner? corner = null)
     {
         var display = _displays.FirstOrDefault(bounds => bounds.Contains(point));
         if (display.IsEmpty)
             return;
         Pointer = point;
-        _dragLimits = _singleDisplay ? display : _desktop;
+        ResizeCorner = Selection is not null ? corner : null;
+        _dragLimits = ResizeCorner.HasValue ? _limits : _singleDisplay ? display : _desktop;
         _anchor = point;
         _dragMoved = false;
         Changed?.Invoke();
@@ -69,15 +81,17 @@ internal sealed class RegionSelection
         if (_anchor is not { } start)
             return null;
 
+        var draft = Draft(start, point);
+        var resizing = ResizeCorner.HasValue;
         Pointer = point;
         _anchor = null;
-        var draft = FromPoints(start, Clamp(point, _dragLimits));
+        ResizeCorner = null;
         if (IsSelectable(draft))
         {
             Selection = draft;
             _limits = _dragLimits;
         }
-        else if (!_dragMoved && !IsDragDistance(start, point))
+        else if (!resizing && !_dragMoved && !IsDragDistance(start, point))
         {
             if (Selection is { } selected && selected.Contains(start) && selected.Contains(point))
                 return selected;
@@ -92,8 +106,62 @@ internal sealed class RegionSelection
         if (_anchor is null)
             return;
         _anchor = null;
+        ResizeCorner = null;
         Changed?.Invoke();
     }
+
+    internal SelectionCorner? CornerAt(Drawing.Point point, Drawing.Size hitRadius)
+    {
+        if (IsDragging || Selection is not { } region)
+            return null;
+
+        // Preserve a click target inside small selections.
+        var xReach = Math.Min(hitRadius.Width, region.Width / 4);
+        var yReach = Math.Min(hitRadius.Height, region.Height / 4);
+        SelectionCorner? nearest = null;
+        var bestDistance = double.PositiveInfinity;
+        foreach (var corner in Corners)
+        {
+            var center = CornerPosition(region, corner);
+            var inwardX = IsLeft(corner) ? point.X - center.X : center.X - point.X;
+            var inwardY = IsTop(corner) ? point.Y - center.Y : center.Y - point.Y;
+            if (inwardX < -hitRadius.Width || inwardX > xReach || inwardY < -hitRadius.Height || inwardY > yReach)
+                continue;
+
+            var distance = (double)inwardX * inwardX + (double)inwardY * inwardY;
+            if (distance < bestDistance)
+            {
+                nearest = corner;
+                bestDistance = distance;
+            }
+        }
+        return nearest;
+    }
+
+    internal static Drawing.Point CornerPosition(Drawing.Rectangle region, SelectionCorner corner) =>
+        new(IsLeft(corner) ? region.Left : region.Right, IsTop(corner) ? region.Top : region.Bottom);
+
+    private Drawing.Rectangle Draft(Drawing.Point start, Drawing.Point point)
+    {
+        if (ResizeCorner is not { } corner || Selection is not { } region)
+            return FromPoints(start, Clamp(point, _dragLimits));
+
+        // Apply the pointer delta so grabbing slightly off-center does not jump the handle.
+        var origin = CornerPosition(region, corner);
+        var x = origin.X + point.X - start.X;
+        var y = origin.Y + point.Y - start.Y;
+        var left = IsLeft(corner);
+        var top = IsTop(corner);
+        return Drawing.Rectangle.FromLTRB(
+            left ? Math.Clamp(x, _dragLimits.Left, region.Right - MinimumSize) : region.Left,
+            top ? Math.Clamp(y, _dragLimits.Top, region.Bottom - MinimumSize) : region.Top,
+            left ? region.Right : Math.Clamp(x, region.Left + MinimumSize, _dragLimits.Right),
+            top ? region.Bottom : Math.Clamp(y, region.Top + MinimumSize, _dragLimits.Bottom));
+    }
+
+    private static bool IsLeft(SelectionCorner corner) => corner is SelectionCorner.TopLeft or SelectionCorner.BottomLeft;
+
+    private static bool IsTop(SelectionCorner corner) => corner is SelectionCorner.TopLeft or SelectionCorner.TopRight;
 
     internal void Nudge(int x, int y)
     {

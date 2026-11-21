@@ -84,6 +84,7 @@ internal sealed class SelectionSurface : FrameworkElement
     private static readonly Pen SelectionPen = FrozenPen(Accent, 1.3);
     private static readonly Pen CrosshairPen = FrozenPen(Brush("#DFCFE4C4"), 1);
     private static readonly Pen DarkPen = FrozenPen(Brush("#B0182421"), 3);
+    private static readonly Pen CornerPen = FrozenPen(Ink, 1);
     private readonly ScreenSnapshot _snapshot;
     private readonly string _prompt;
     private readonly Action _canceled;
@@ -98,8 +99,12 @@ internal sealed class SelectionSurface : FrameworkElement
     {
         _session = session;
         _selected = selected;
-        Loaded += (_, _) => session.Changed += InvalidateVisual;
-        Unloaded += (_, _) => session.Changed -= InvalidateVisual;
+        Loaded += (_, _) =>
+        {
+            session.Changed += UpdateRegionVisual;
+            UpdateRegionVisual();
+        };
+        Unloaded += (_, _) => session.Changed -= UpdateRegionVisual;
     }
 
     internal SelectionSurface(ScreenSnapshot snapshot, string prompt, Action canceled,
@@ -139,7 +144,10 @@ internal sealed class SelectionSurface : FrameworkElement
             return;
 
         if (_session is { } session)
-            session.Begin(CaptureService.CursorPosition);
+        {
+            var point = CaptureService.CursorPosition;
+            session.Begin(point, session.CornerAt(point, ResizeHitRadius()));
+        }
         e.Handled = true;
     }
 
@@ -224,13 +232,13 @@ internal sealed class SelectionSurface : FrameworkElement
             DrawSelection(drawing, bounds, selection, outline);
             if (session.IsDragging || session.Selection is not null)
             {
-                foreach (var corner in new[] { outline.TopLeft, outline.TopRight, outline.BottomLeft, outline.BottomRight })
-                    drawing.DrawRectangle(Accent, null, new Rect(corner.X - 2.5, corner.Y - 2.5, 5, 5));
                 if (cursorHere)
                 {
                     var text = Text($"{region.Width} × {region.Height}", 12, Ink);
-                    DrawBadge(drawing, text, new Point(selection.Left, Math.Max(62, selection.Top - 28)), Accent);
+                    var badgeTop = selection.Top >= 86 ? selection.Top - 28 : selection.Bottom + 8;
+                    DrawBadge(drawing, text, new Point(selection.Left, badgeTop), Accent);
                 }
+                DrawCorners(drawing, region, session);
             }
         }
         else
@@ -249,6 +257,40 @@ internal sealed class SelectionSurface : FrameworkElement
             DrawMagnifier(drawing, position);
         }
         DrawPrompt(drawing, bounds, session.Selection is null ? _prompt : UiText.Get("SelectionAdjustPrompt"));
+    }
+
+    private void UpdateRegionVisual()
+    {
+        var session = _session!;
+        var corner = session.ResizeCorner ?? session.CornerAt(session.Pointer, ResizeHitRadius());
+        var cursor = corner switch
+        {
+            SelectionCorner.TopLeft or SelectionCorner.BottomRight => Cursors.SizeNWSE,
+            SelectionCorner.TopRight or SelectionCorner.BottomLeft => Cursors.SizeNESW,
+            _ => Cursors.Cross
+        };
+        if (Cursor != cursor)
+            Cursor = cursor;
+        InvalidateVisual();
+    }
+
+    private Drawing.Size ResizeHitRadius()
+    {
+        var dpi = VisualTreeHelper.GetDpi(this);
+        return new Drawing.Size((int)Math.Ceiling(9 * dpi.DpiScaleX), (int)Math.Ceiling(9 * dpi.DpiScaleY));
+    }
+
+    private void DrawCorners(DrawingContext drawing, Drawing.Rectangle region, RegionSelection session)
+    {
+        var isAdjustable = session.Selection is not null;
+        var hotCorner = session.ResizeCorner ?? session.CornerAt(session.Pointer, ResizeHitRadius());
+        foreach (var corner in RegionSelection.Corners)
+        {
+            var local = LocalPoint(RegionSelection.CornerPosition(region, corner));
+            var extent = !isAdjustable ? 5 : corner == hotCorner ? 11 : 9;
+            var box = new Rect(local.X - extent / 2d, local.Y - extent / 2d, extent, extent);
+            drawing.DrawRoundedRectangle(Accent, isAdjustable ? CornerPen : null, box, 2, 2);
+        }
     }
 
     private static void DrawSelection(DrawingContext drawing, Rect bounds, Rect selection, Rect outline)
@@ -298,13 +340,12 @@ internal sealed class SelectionSurface : FrameworkElement
         drawing.DrawRoundedRectangle(null, SelectionPen, lens, 7, 7);
     }
 
-    private Rect LocalRect(Drawing.Rectangle region)
-    {
-        var x = ActualWidth / _snapshot.Bounds.Width;
-        var y = ActualHeight / _snapshot.Bounds.Height;
-        return new Rect((region.Left - _snapshot.Bounds.Left) * x, (region.Top - _snapshot.Bounds.Top) * y,
-            region.Width * x, region.Height * y);
-    }
+    private Point LocalPoint(Drawing.Point point) => new(
+        (point.X - _snapshot.Bounds.Left) * ActualWidth / _snapshot.Bounds.Width,
+        (point.Y - _snapshot.Bounds.Top) * ActualHeight / _snapshot.Bounds.Height);
+
+    private Rect LocalRect(Drawing.Rectangle region) => new(LocalPoint(region.Location), new Size(
+        region.Width * ActualWidth / _snapshot.Bounds.Width, region.Height * ActualHeight / _snapshot.Bounds.Height));
 
     private FormattedText Text(string value, double size, Brush brush)
     {
