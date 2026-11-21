@@ -27,8 +27,14 @@ public partial class MainWindow
         SizeChanged += (_, _) => ScheduleAppearanceSave();
 
         _palette = _preferences.Palette;
-        if (PaletteSwatch(_palette?.Color)?.Tag is string color)
-            EditorImage.SetInk((Color)ColorConverter.ConvertFromString(color));
+        if (_palette is { } palette)
+        {
+            var ink = PaletteSwatch(palette.Color)?.Tag is string color
+                ? (Color)ColorConverter.ConvertFromString(color) : EditorImage.Ink;
+            var width = double.IsFinite(palette.StrokeWidth)
+                ? Math.Clamp(palette.StrokeWidth, StrokeSize.Minimum, StrokeSize.Maximum) : EditorImage.StrokeWidth;
+            EditorImage.SetDrawingDefaults(ink, width);
+        }
         UpdateSelectionOptions();
 
         if (_preferences.WindowSize is { IsValid: true } saved)
@@ -65,7 +71,7 @@ public partial class MainWindow
 
     private void ScheduleAppearanceSave()
     {
-        if (!_workspaceWasShown)
+        if (!_workspaceWasShown && _palette == _preferences.Palette)
             return;
 
         _appearanceSaveTimer.Stop();
@@ -75,12 +81,14 @@ public partial class MainWindow
     private void SaveAppearance()
     {
         _appearanceSaveTimer.Stop();
-        if (!_workspaceWasShown)
-            return;
-
-        var size = WindowState == WindowState.Normal ? new Size(ActualWidth, ActualHeight) : RestoreBounds.Size;
-        var latest = new WorkspaceSize(Math.Round(size.Width, 2), Math.Round(size.Height, 2), _workspaceWasMaximized);
-        var saved = latest.IsValid ? latest : _preferences.WindowSize;
+        var saved = _preferences.WindowSize;
+        if (_workspaceWasShown)
+        {
+            var size = WindowState == WindowState.Normal ? new Size(ActualWidth, ActualHeight) : RestoreBounds.Size;
+            var latest = new WorkspaceSize(Math.Round(size.Width, 2), Math.Round(size.Height, 2), _workspaceWasMaximized);
+            if (latest.IsValid)
+                saved = latest;
+        }
         if (saved != _preferences.WindowSize || _palette != _preferences.Palette)
             TrySavePreferences(_preferences with { WindowSize = saved, Palette = _palette });
     }
@@ -92,13 +100,39 @@ public partial class MainWindow
         .Select(tag => PaletteSwatch(tag)?.Tag as string).OfType<string>()
         .Distinct(StringComparer.OrdinalIgnoreCase).Take(RecentColorLimit).ToArray();
 
+    private PalettePreferences DrawingPalette => _palette
+        ?? new PalettePreferences(ColorTag(EditorImage.Ink), [], EditorImage.StrokeWidth);
+
+    private static string ColorTag(Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+
     private void RememberColor(string color)
     {
+        var ink = (Color)ColorConverter.ConvertFromString(color);
+        if (EditorImage.Ink != ink)
+        {
+            EditorImage.SetDrawingDefaults(ink, EditorImage.StrokeWidth);
+            UpdateSelectionOptions();
+        }
+
         var recent = RecentColorTags(color);
         if (_palette?.Color == color && (_palette.RecentColors ?? []).SequenceEqual(recent))
             return;
 
-        _palette = new PalettePreferences(color, recent);
+        _palette = DrawingPalette with { Color = color, RecentColors = recent };
+        ScheduleAppearanceSave();
+    }
+
+    private void RememberStrokeWidth(double width)
+    {
+        if (EditorImage.StrokeWidth != width)
+        {
+            EditorImage.SetDrawingDefaults(EditorImage.Ink, width);
+            UpdateSelectionOptions();
+        }
+        if (_palette?.StrokeWidth == width)
+            return;
+
+        _palette = DrawingPalette with { StrokeWidth = width };
         ScheduleAppearanceSave();
     }
 
@@ -108,7 +142,7 @@ public partial class MainWindow
             return;
 
         menu.Items.Clear();
-        var active = $"#{EditorImage.Ink.R:X2}{EditorImage.Ink.G:X2}{EditorImage.Ink.B:X2}";
+        var active = ColorTag(EditorImage.Ink);
         foreach (var color in RecentColorTags(active))
         {
             var item = new MenuItem

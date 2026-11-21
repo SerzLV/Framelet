@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 
@@ -150,8 +151,11 @@ internal static class AuxiliaryWindows
         return window.ShowDialog() == true ? field.Text : null;
     }
 
-    internal static Window ShowPin(Window owner, BitmapSource image)
+    internal static Window ShowPin(Window owner, BitmapSource image, Drawing.Point? origin = null)
     {
+        if (origin is { } point)
+            return ShowPinAtOriginalSize(image, point);
+
         var ratio = Math.Min(1, Math.Min(570d / image.PixelWidth, 360d / image.PixelHeight));
         var window = new Window
         {
@@ -226,6 +230,85 @@ internal static class AuxiliaryWindows
             }
 
             window.DragMove();
+        }
+    }
+
+    private static Window ShowPinAtOriginalSize(BitmapSource image, Drawing.Point origin)
+    {
+        var window = new Window
+        {
+            WindowStyle = WindowStyle.None,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Topmost = true,
+            UseLayoutRounding = true,
+            Left = origin.X,
+            Top = origin.Y,
+            Width = image.PixelWidth,
+            Height = image.PixelHeight,
+            WindowStartupLocation = WindowStartupLocation.Manual
+        };
+        window.SetResourceReference(Window.TitleProperty, UiText.Key("PinnedTitle"));
+
+        var preview = new Image { Source = image, Stretch = Stretch.Fill, SnapsToDevicePixels = true };
+        RenderOptions.SetBitmapScalingMode(preview, BitmapScalingMode.NearestNeighbor);
+        var close = new Button
+        {
+            Content = "×",
+            Width = 25,
+            Height = 25,
+            Padding = new Thickness(0),
+            Style = (Style)Application.Current.FindResource("BaseButton"),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(3),
+            Visibility = Visibility.Collapsed
+        };
+        close.SetResourceReference(FrameworkElement.ToolTipProperty, UiText.Key("ClosePin"));
+        close.SetResourceReference(System.Windows.Automation.AutomationProperties.NameProperty, UiText.Key("ClosePin"));
+        close.Click += (_, _) => window.Close();
+
+        var layout = new Grid { ClipToBounds = true };
+        layout.Children.Add(preview);
+        layout.Children.Add(close);
+        layout.MouseEnter += (_, _) =>
+        {
+            if (layout.ActualWidth >= 48 && layout.ActualHeight >= 32)
+                close.Visibility = Visibility.Visible;
+        };
+        layout.MouseLeave += (_, _) => close.Visibility = Visibility.Collapsed;
+        window.Content = layout;
+        preview.MouseLeftButtonDown += (_, e) =>
+        {
+            if (e.ClickCount == 2)
+                window.Close();
+            else
+                window.DragMove();
+        };
+        window.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+                window.Close();
+        };
+
+        window.SourceInitialized += (_, _) => AlignToPixels(move: true);
+        window.Loaded += (_, _) => AlignToPixels(move: true);
+        window.DpiChanged += (_, _) => window.Dispatcher.InvokeAsync(
+            () => AlignToPixels(move: false), DispatcherPriority.Loaded);
+        window.Show();
+        return window;
+
+        void AlignToPixels(bool move)
+        {
+            var handle = new WindowInteropHelper(window).Handle;
+            if (handle == IntPtr.Zero)
+                return;
+
+            const uint keepOrderAndActivation = 0x0004 | 0x0010;
+            const uint keepPosition = 0x0002;
+            Native.SetWindowPos(handle, IntPtr.Zero, origin.X, origin.Y, image.PixelWidth, image.PixelHeight,
+                keepOrderAndActivation | (move ? 0u : keepPosition));
         }
     }
 }

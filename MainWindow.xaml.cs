@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Markup;
 using System.Windows.Threading;
+using Drawing = System.Drawing;
 
 namespace Framelet;
 
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
     private Task? _initialHistoryLoad;
     private Preferences _preferences;
     private string? _entryPath;
+    private Drawing.Point? _editorCaptureOrigin;
     private int _revision;
     private int _savedRevision;
     private bool _busy;
@@ -114,11 +116,12 @@ public partial class MainWindow : Window
         base.OnClosed(e);
     }
 
-    private void OpenEditor(BitmapSource image, string? path, EditJournal? journal = null)
+    private void OpenEditor(BitmapSource image, string? path, EditJournal? journal = null, Drawing.Point? origin = null)
     {
         EndCrop(returnFocus: false);
         CloseOcr();
         _entryPath = path;
+        _editorCaptureOrigin = origin;
         HomeView.Visibility = Visibility.Collapsed;
         EditorView.Visibility = Visibility.Visible;
         EditorImage.Reset(image, journal);
@@ -131,9 +134,10 @@ public partial class MainWindow : Window
         EditorImage.Focus();
     }
 
-    private async Task OpenCapturedImageAsync(BitmapSource image, string status, EditorDocument? document = null)
+    private async Task OpenCapturedImageAsync(BitmapSource image, string status,
+        EditorDocument? document = null, Drawing.Point? origin = null)
     {
-        OpenEditor(document?.Image ?? image, null, document?.Journal);
+        OpenEditor(document?.Image ?? image, null, document?.Journal, origin);
         var revision = _revision;
         ShowWorkspace();
         Report(UiText.Get(status));
@@ -279,14 +283,20 @@ public partial class MainWindow : Window
             EditorImage.CompleteStrokeAdjustment();
             var revision = _revision;
             var image = await EditorImage.ExportAsync();
-            PinImage(image);
+            var origin = _editorCaptureOrigin;
+            if (origin is { } point)
+            {
+                var (x, y) = EditorImage.CropOffset;
+                origin = new Drawing.Point(point.X + x, point.Y + y);
+            }
+            PinImage(image, origin);
             await RememberEditorAsync(image, revision);
         });
     }
 
-    private void PinImage(BitmapSource image)
+    private void PinImage(BitmapSource image, Drawing.Point? origin)
     {
-        var pin = AuxiliaryWindows.ShowPin(this, image);
+        var pin = AuxiliaryWindows.ShowPin(this, image, origin);
         _pins.Add(pin);
         pin.Closed += (_, _) => _pins.Remove(pin);
         Report(UiText.Get("Pinned"));
@@ -429,6 +439,7 @@ public partial class MainWindow : Window
             return;
 
         EditorImage.SetStrokeWidth(e.NewValue);
+        RememberStrokeWidth(e.NewValue);
         StrokeValue.Text = $"{e.NewValue:0}";
     }
 
@@ -790,6 +801,7 @@ public partial class MainWindow : Window
             _entryPath = null;
             _lastCapturePath = null;
             _lastCaptureImage = null;
+            _lastCaptureOrigin = null;
             _savedRevision = _revision;
             RefreshHistory([]);
             Report(UiText.Get("HistoryCleared"));

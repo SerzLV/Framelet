@@ -42,6 +42,7 @@ internal sealed class SelectionEditingSession : IDisposable
 
     internal SelectionEditingSession(RegionSelection selection, ScreenSnapshot[] screens,
         Color ink, double stroke, bool heads, Func<IEnumerable<SelectionSwatch>> colors, Action<string> rememberColor,
+        Action<double> rememberStrokeWidth,
         Func<string, Task> copyText, Action<SelectionRequest> complete, Action cancel)
     {
         _selection = selection;
@@ -70,6 +71,7 @@ internal sealed class SelectionEditingSession : IDisposable
                 return;
             _stroke = width;
             Editor?.SetStrokeWidth(width);
+            rememberStrokeWidth(width);
         };
         _toolbar.StrokeStarted += () => Editor?.StartStrokeAdjustment();
         _toolbar.StrokeCompleted += () => Editor?.CompleteStrokeAdjustment();
@@ -170,8 +172,7 @@ internal sealed class SelectionEditingSession : IDisposable
         var canvas = new SelectionAnnotationWindow(region, image);
         _canvas = canvas;
         var editor = canvas.Editor;
-        editor.SetInk(_ink);
-        editor.SetStrokeWidth(_stroke);
+        editor.SetDrawingDefaults(_ink, _stroke);
         editor.SetCurveHeads(_heads);
         editor.Changed += EditorChanged;
         editor.SelectionChanged += RefreshTools;

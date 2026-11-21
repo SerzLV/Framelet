@@ -17,6 +17,7 @@ internal static partial class Program
             HistoryCleansUnreferencedJournals(directory.FullName);
             HistoryViewportIncludesLastRow();
             OcrCacheTracksImageChanges(directory.FullName);
+            DrawingPreferencesRememberColorAndStroke(directory.FullName);
             LanguageFollowsSystem();
             OcrDistinguishesYearsFromPhones();
             RegionSelectionUsesDesktopCoordinates();
@@ -34,6 +35,23 @@ internal static partial class Program
         {
             directory.Delete(recursive: true);
         }
+    }
+
+    private static void DrawingPreferencesRememberColorAndStroke(string root)
+    {
+        var data = Directory.CreateDirectory(Path.Combine(root, "DrawingPreferences")).FullName;
+        File.WriteAllText(Path.Combine(data, "preferences.json"),
+            """{"Palette":{"Color":"#75CFFF","RecentColors":["#75CFFF","#D3FA85"]}}""");
+        var store = new HistoryStore(data);
+        var legacy = store.LoadPreferences();
+        Require(legacy.Palette is { Color: "#75CFFF", StrokeWidth: 4 },
+            "Existing color settings keep their palette and get the default stroke width");
+
+        store.SavePreferences(legacy with { Palette = legacy.Palette! with { StrokeWidth = 9 } });
+        var reloaded = new HistoryStore(data).LoadPreferences();
+        Require(reloaded.Palette is { Color: "#75CFFF", StrokeWidth: 9 } palette
+            && palette.RecentColors.SequenceEqual(new[] { "#75CFFF", "#D3FA85" }),
+            "Color, recent colors and the chosen stroke width survive reopening settings");
     }
 
     private static void HistoryCleansUnreferencedJournals(string root)

@@ -19,7 +19,7 @@ internal sealed record WorkspaceSize(double Width, double Height, bool Maximized
     internal bool IsValid => double.IsFinite(Width) && Width > 0 && double.IsFinite(Height) && Height > 0;
 }
 
-internal sealed record PalettePreferences(string Color, string[] RecentColors);
+internal sealed record PalettePreferences(string Color, string[] RecentColors, double StrokeWidth = 4);
 
 internal sealed record HistoryItem(string FilePath, DateTime CreatedUtc, int Width, int Height)
 {

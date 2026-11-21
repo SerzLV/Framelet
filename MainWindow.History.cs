@@ -52,7 +52,8 @@ public partial class MainWindow
             await RunOperation(async () =>
             {
                 var document = await Task.Run(() => _history.OpenEditorDocument(item.FilePath));
-                OpenEditor(document.Image, item.FilePath, document.Journal);
+                var origin = item.FilePath == _lastCapturePath ? _lastCaptureOrigin : null;
+                OpenEditor(document.Image, item.FilePath, document.Journal, origin);
                 Report(UiText.Get("OpenedHistory"));
             });
         }

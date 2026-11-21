@@ -111,6 +111,13 @@ public sealed class EditorSurface : FrameworkElement
     };
     private int ViewX => _crop?.X ?? 0;
     private int ViewY => _crop?.Y ?? 0;
+    internal (int X, int Y) CropOffset => (ViewX, ViewY);
+
+    internal void SetDrawingDefaults(Color ink, double width)
+    {
+        Ink = ink;
+        StrokeWidth = width;
+    }
 
     internal void SetInk(Color color)
     {

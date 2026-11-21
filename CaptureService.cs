@@ -33,12 +33,13 @@ internal static class CaptureService
             .ToArray();
     }
 
-    internal static BitmapSource CaptureCurrentDisplay()
+    internal static ScreenSnapshot CaptureCurrentDisplay()
     {
-        return Capture(Forms.Screen.FromPoint(CursorPosition).Bounds);
+        var bounds = Forms.Screen.FromPoint(CursorPosition).Bounds;
+        return new ScreenSnapshot(bounds, Capture(bounds));
     }
 
-    internal static BitmapSource CaptureWindow(IntPtr window)
+    internal static ScreenSnapshot CaptureWindow(IntPtr window)
     {
         if (window == IntPtr.Zero || !Native.IsWindowVisible(window) || Native.IsIconic(window))
         {
@@ -56,7 +57,7 @@ internal static class CaptureService
             throw new UserFacingException("WindowOffscreen");
         }
 
-        return Capture(bounds);
+        return new ScreenSnapshot(bounds, Capture(bounds));
     }
 
     internal static IReadOnlyList<Drawing.Rectangle> GetVisibleWindowBounds()

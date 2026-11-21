@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media.Imaging;
+using Drawing = System.Drawing;
 
 namespace Framelet;
 
@@ -7,13 +8,15 @@ public partial class MainWindow
 {
     private BitmapSource? _lastCaptureImage;
     private string? _lastCapturePath;
+    private Drawing.Point? _lastCaptureOrigin;
     private bool _publishingCapture;
     private bool _openLastCapturePending;
 
-    private void RecordCapture(BitmapSource image)
+    private void RecordCapture(BitmapSource image, Drawing.Point? origin)
     {
         _lastCaptureImage = image;
         _lastCapturePath = null;
+        _lastCaptureOrigin = origin;
         _publishingCapture = true;
     }
 
@@ -51,10 +54,12 @@ public partial class MainWindow
     {
         var image = _lastCaptureImage;
         var path = _lastCapturePath;
+        var origin = _lastCaptureOrigin;
         if (image is null && (path is null || !File.Exists(path)))
         {
             await EnsureHistoryLoadedAsync();
             path = _recent.FirstOrDefault(entry => File.Exists(entry.FilePath))?.FilePath;
+            origin = null;
         }
 
         CloseSettings();
@@ -83,10 +88,10 @@ public partial class MainWindow
         if (path is not null)
         {
             var document = await Task.Run(() => _history.OpenEditorDocument(path));
-            OpenEditor(document.Image, path, document.Journal);
+            OpenEditor(document.Image, path, document.Journal, origin);
             Report(UiText.Get("LastCaptureOpened"));
         }
         else
-            await OpenCapturedImageAsync(image!, "LastCaptureOpened");
+            await OpenCapturedImageAsync(image!, "LastCaptureOpened", origin: origin);
     });
 }

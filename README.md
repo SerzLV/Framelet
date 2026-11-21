@@ -23,7 +23,7 @@ Use the toolbar next to the frame to annotate, copy text, hide contact details, 
 | **Text recognition** | Select and copy words directly from the screenshot. OCR runs locally and recognizes English, Latvian, and Russian. Auto mode can read all three languages in one image. |
 | **Contact details** | Copy detected email addresses, phone numbers, postal addresses, and links individually. Use **Hide contact details** to cover detected emails, phone numbers, and addresses before exporting. |
 | **Screenshot history** | Search all saved screenshots by name or recognized text. Rename, copy, or recycle an entry. Reopen saved screenshots with editable annotations and up to ten undo steps. |
-| **System tray** | Start Framelet with Windows, capture from the tray, and reopen the latest screenshot. Set a shortcut to show or hide Framelet. The app remembers your language, window size, and four most recent annotation colors. |
+| **System tray** | Start Framelet with Windows, capture from the tray, and reopen the latest screenshot. Set a shortcut to show or hide Framelet. The app remembers your language, window size, stroke width, and four most recent annotation colors. |
 
 The interface is available in English and Russian. Switch languages in Settings.
 

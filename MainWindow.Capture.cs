@@ -260,13 +260,13 @@ public partial class MainWindow
                 await Task.Delay(65);
                 Native.DwmFlush();
                 var selection = mode == CaptureMode.Region ? await SelectRegionAsync(mode) : null;
-                BitmapSource? image = mode switch
+                var snapshot = mode switch
                 {
                     CaptureMode.Screen => await Task.Run(CaptureService.CaptureCurrentDisplay),
                     CaptureMode.Window => await Task.Run(() => CaptureService.CaptureWindow(previousWindow)),
-                    CaptureMode.Scrolling => await CaptureScrollingAsync(),
-                    _ => selection?.Snapshot.Image
+                    _ => selection?.Snapshot
                 };
+                var image = mode == CaptureMode.Scrolling ? await CaptureScrollingAsync() : snapshot?.Image;
 
                 if (image is null)
                 {
@@ -274,7 +274,7 @@ public partial class MainWindow
                     return;
                 }
 
-                RecordCapture(image);
+                RecordCapture(image, snapshot?.Bounds.Location);
                 if (selection is { Output: SelectionOutput.Copy })
                 {
                     await CopyImageToClipboardAsync(image);
@@ -284,7 +284,7 @@ public partial class MainWindow
                     await RememberClipboardCaptureAsync(image);
                     return;
                 }
-                await OpenCapturedImageAsync(image, "CaptureReady");
+                await OpenCapturedImageAsync(image, "CaptureReady", origin: snapshot?.Bounds.Location);
             }
             catch
             {
@@ -330,17 +330,17 @@ public partial class MainWindow
                 CloseRename(returnFocus: false);
                 if (await SaveBeforeLeavingAsync())
                 {
-                    RecordCapture(image);
-                    await OpenCapturedImageAsync(image, "CaptureReady", capture.Document);
+                    RecordCapture(image, capture.Snapshot.Bounds.Location);
+                    await OpenCapturedImageAsync(image, "CaptureReady", capture.Document, capture.Snapshot.Bounds.Location);
                 }
                 return;
             }
 
-            RecordCapture(image);
+            RecordCapture(image, capture.Snapshot.Bounds.Location);
             if (capture is { Output: SelectionOutput.Save, FilePath: { } path })
                 Report(UiText.Format("SavedFile", Path.GetFileName(path)));
             else if (capture.Output == SelectionOutput.Pin)
-                PinImage(image);
+                PinImage(image, capture.Snapshot.Bounds.Location);
             else
             {
                 await CopyImageToClipboardAsync(image);
@@ -418,7 +418,7 @@ public partial class MainWindow
             ? (Color)ColorConverter.ConvertFromString(color) : EditorImage.Ink;
         using var edits = mode is CaptureMode.QuickClipboard or CaptureMode.Delayed
             ? new SelectionEditingSession(session, screens, ink, EditorImage.StrokeWidth, EditorImage.NewCurveHasBothHeads,
-                SelectionColors, RememberColor, text => AccessClipboardAsync(() => Clipboard.SetText(text)),
+                SelectionColors, RememberColor, RememberStrokeWidth, text => AccessClipboardAsync(() => Clipboard.SetText(text)),
                 request => completion.TrySetResult(request), () => completion.TrySetResult(null))
             : null;
         Action<KeyEventArgs>? editKey = edits is null ? null : edits.HandleKey;
