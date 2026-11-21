@@ -191,6 +191,7 @@ public sealed class EditorSurface : FrameworkElement
         if (journal is not null)
         {
             _marks.AddRange(journal.Marks.Select(Annotation.FromState));
+            RenumberMarkers();
             foreach (var edit in journal.Undo.Reverse())
                 _undo.Push(Edit.FromState(edit));
             foreach (var edit in journal.Redo.Reverse())
@@ -388,10 +389,7 @@ public sealed class EditorSurface : FrameworkElement
                     Add(mark with { Label = text.Trim() });
                 break;
             case EditorTool.Number:
-                var number = _marks.Where(entry => entry.Tool == EditorTool.Number)
-                    .Select(entry => int.TryParse(entry.Label, NumberStyles.None, CultureInfo.InvariantCulture, out var label)
-                        && label < int.MaxValue ? label : 0)
-                    .DefaultIfEmpty().Max() + 1;
+                var number = _marks.Count(entry => entry.Tool == EditorTool.Number) + 1;
                 Add(mark with { Label = number.ToString(CultureInfo.InvariantCulture) });
                 break;
             default:
@@ -528,11 +526,28 @@ public sealed class EditorSurface : FrameworkElement
         else
             _marks[edit.Index] = mark;
 
+        if (before?.Tool == EditorTool.Number || mark?.Tool == EditorTool.Number)
+            RenumberMarkers();
         if (edit.After?.Tool == EditorTool.Redact || edit.Before?.Tool == EditorTool.Redact)
             OcrRevision++;
         SelectAnnotation(mark is not null && (Tool == EditorTool.Select || mark.Tool == Tool) ? edit.Index : -1);
         InvalidateVisual();
         Changed?.Invoke();
+    }
+
+    private void RenumberMarkers()
+    {
+        var number = 0;
+        for (var index = 0; index < _marks.Count; index++)
+        {
+            var mark = _marks[index];
+            if (mark.Tool != EditorTool.Number)
+                continue;
+
+            var label = (++number).ToString(CultureInfo.InvariantCulture);
+            if (mark.Label != label)
+                _marks[index] = mark with { Label = label };
+        }
     }
 
     private void SelectAnnotation(int index)

@@ -25,6 +25,7 @@ internal static partial class Program
             RegionSelectionMovesAndPlacesToolbar();
             WindowHighlightSkipsUtilityWindows();
             RegionCaptureComposesMonitors();
+            NumberMarkersStaySequential();
             ExportPreservesLargeImage();
             ScrollStitchingPreservesContent();
             ScrollStitchingKeepsOneFooter();
