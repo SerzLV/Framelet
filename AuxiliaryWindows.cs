@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -11,15 +12,22 @@ namespace Framelet;
 
 internal static class AuxiliaryWindows
 {
-    internal static async Task ShowCaptureCountdownAsync()
+    internal static async Task<bool> ShowCaptureCountdownAsync()
     {
         const int seconds = 3;
+        using var cancellation = new CancellationTokenSource();
         var accent = (Brush)Application.Current.FindResource("Accent");
-        var label = new TextBlock
+        var labels = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        labels.Children.Add(new TextBlock
         {
             Text = UiText.Get("CaptureCountdown"),
-            FontSize = 14, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center
-        };
+            FontSize = 14, FontWeight = FontWeights.SemiBold
+        });
+        labels.Children.Add(new TextBlock
+        {
+            Text = UiText.Get("CaptureCountdownCancel"), FontSize = 12,
+            Foreground = (Brush)Application.Current.FindResource("Muted"), Margin = new Thickness(0, 2, 0, 0)
+        });
         var digit = new TextBlock
         {
             Text = seconds.ToString(), FontSize = 23, FontWeight = FontWeights.Bold, Foreground = accent,
@@ -32,13 +40,13 @@ internal static class AuxiliaryWindows
         };
         var content = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         content.Children.Add(counter);
-        content.Children.Add(label);
+        content.Children.Add(labels);
         var window = new Window
         {
             Title = UiText.Get("CaptureCountdown"), Width = 226, Height = 64, WindowStartupLocation = WindowStartupLocation.Manual,
             WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, AllowsTransparency = true,
             Background = Brushes.Transparent, ShowInTaskbar = false, ShowActivated = false, Topmost = true,
-            Content = new Border
+            Cursor = Cursors.Hand, Content = new Border
             {
                 Background = (Brush)Application.Current.FindResource("Panel"),
                 BorderBrush = (Brush)Application.Current.FindResource("Stroke"), BorderThickness = new Thickness(1),
@@ -61,10 +69,15 @@ internal static class AuxiliaryWindows
             }
             HwndSource.FromHwnd(handle)?.AddHook((IntPtr _, int message, IntPtr _, IntPtr _, ref bool handled) =>
             {
-                const int mouseActivate = 0x0021, noActivateAndEat = 4;
+                const int mouseActivate = 0x0021, noActivate = 3;
                 handled = message == mouseActivate;
-                return handled ? new IntPtr(noActivateAndEat) : IntPtr.Zero;
+                return handled ? new IntPtr(noActivate) : IntPtr.Zero;
             });
+        };
+        window.PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            e.Handled = true;
+            cancellation.Cancel();
         };
 
         window.Show();
@@ -73,8 +86,13 @@ internal static class AuxiliaryWindows
             for (var remaining = seconds; remaining > 0; remaining--)
             {
                 digit.Text = remaining.ToString();
-                await Task.Delay(1000);
+                await Task.Delay(1000, cancellation.Token);
             }
+            return !cancellation.IsCancellationRequested;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            return false;
         }
         finally
         {

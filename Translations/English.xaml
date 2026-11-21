@@ -172,6 +172,8 @@
     <sys:String x:Key="Ui.HistoryItemDeleted">Screenshot deleted from history</sys:String>
     <sys:String x:Key="Ui.RecycleConfirm">Move “{0}” to the Recycle Bin?</sys:String>
     <sys:String x:Key="Ui.CaptureCountdown">Capture starts in</sys:String>
+    <sys:String x:Key="Ui.CaptureCountdownCancel">Click to cancel</sys:String>
+    <sys:String x:Key="Ui.RecycleAction">Move to Recycle Bin</sys:String>
     <sys:String x:Key="Ui.HistorySearch">Search by name or text</sys:String>
     <sys:String x:Key="Ui.HistorySearchClear">Clear search</sys:String>
     <sys:String x:Key="Ui.HistoryNoResults">No screenshots found</sys:String>

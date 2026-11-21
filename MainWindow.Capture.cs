@@ -255,8 +255,11 @@ public partial class MainWindow
 
             try
             {
-                if (mode == CaptureMode.Delayed)
-                    await AuxiliaryWindows.ShowCaptureCountdownAsync();
+                if (mode == CaptureMode.Delayed && !await AuxiliaryWindows.ShowCaptureCountdownAsync())
+                {
+                    ReportCaptureCanceled(returnOnCancel);
+                    return;
+                }
                 await Task.Delay(65);
                 Native.DwmFlush();
                 BitmapSource? image = mode switch
@@ -269,9 +272,7 @@ public partial class MainWindow
 
                 if (image is null)
                 {
-                    if (returnOnCancel)
-                        ShowWorkspace();
-                    Report(UiText.Get("CaptureCanceled"));
+                    ReportCaptureCanceled(returnOnCancel);
                     return;
                 }
 
@@ -284,6 +285,13 @@ public partial class MainWindow
                 throw;
             }
         }, capturing: true);
+    }
+
+    private void ReportCaptureCanceled(bool returnOnCancel)
+    {
+        if (returnOnCancel)
+            ShowWorkspace();
+        Report(UiText.Get("CaptureCanceled"));
     }
 
     private async Task CaptureQuickToClipboardAsync()

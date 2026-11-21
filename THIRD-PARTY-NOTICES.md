@@ -11,4 +11,4 @@ Framelet is copyright © 2026 SerzLV and is licensed under the [Apache License 2
 | [Leptonica 1.82.0](https://github.com/DanBloomberg/leptonica/tree/1.82.0) | Copyright 2001–2020 Leptonica. BSD 2-Clause. |
 | [.NET and Windows Desktop Runtime](https://github.com/dotnet/runtime) | .NET Foundation and contributors. MIT license and applicable third-party notices. Included in self-contained builds. |
 
-The native OCR libraries also use codecs with their own license terms, including GIFLIB, libjpeg-turbo, libpng, libtiff, XZ Utils, zlib, and zstd.
+The native OCR libraries also use codecs with their own license terms, including GIFLIB, libjpeg-turbo, libpng, libtiff, XZ Utils, zlib, and zstd. Their license texts are in the `licenses` directory in the repository and the release ZIP. The release script also includes the notices from the .NET runtime packs used to build the EXE.

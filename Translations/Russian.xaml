@@ -172,6 +172,8 @@
     <sys:String x:Key="Ui.HistoryItemDeleted">Снимок удалён из истории</sys:String>
     <sys:String x:Key="Ui.RecycleConfirm">Отправить «{0}» в корзину?</sys:String>
     <sys:String x:Key="Ui.CaptureCountdown">Снимок через</sys:String>
+    <sys:String x:Key="Ui.CaptureCountdownCancel">Нажмите для отмены</sys:String>
+    <sys:String x:Key="Ui.RecycleAction">В корзину</sys:String>
     <sys:String x:Key="Ui.HistorySearch">Поиск по имени и тексту</sys:String>
     <sys:String x:Key="Ui.HistorySearchClear">Очистить поиск</sys:String>
     <sys:String x:Key="Ui.HistoryNoResults">Снимки не найдены</sys:String>

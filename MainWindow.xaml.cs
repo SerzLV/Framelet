@@ -69,7 +69,10 @@ public partial class MainWindow : Window
                 _ = EnsureHistoryLoadedAsync();
             }
             else
+            {
+                CancelHistoryConfirmation();
                 SaveAppearance();
+            }
         };
     }
 
@@ -101,6 +104,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CancelHistoryConfirmation();
         CancelOcrRequest();
         _appearanceSaveTimer.Stop();
         _editSaveTimer.Stop();
@@ -520,6 +524,16 @@ public partial class MainWindow : Window
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_historyConfirmation is not null)
+        {
+            if (e.Key == Key.Escape)
+            {
+                CancelHistoryConfirmation();
+                e.Handled = true;
+            }
+            return;
+        }
+
         if (RenameLayer.Visibility == Visibility.Visible)
         {
             if (e.Key == Key.Escape)
@@ -663,7 +677,7 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        if (RenameLayer.Visibility == Visibility.Visible)
+        if (_historyConfirmation is not null || RenameLayer.Visibility == Visibility.Visible)
             return;
 
         if (SettingsLayer.Visibility == Visibility.Visible)
@@ -693,7 +707,6 @@ public partial class MainWindow : Window
             StopRecordingWorkspaceShortcut();
         StopRecordingCaptureShortcut();
         SettingsLayer.Visibility = Visibility.Collapsed;
-        ClearConfirmation.Visibility = Visibility.Collapsed;
         HomeView.IsEnabled = EditorView.IsEnabled = true;
     }
 
@@ -770,13 +783,14 @@ public partial class MainWindow : Window
             return Task.CompletedTask;
         });
 
-    private void ClearHistory_Click(object sender, RoutedEventArgs e) => ClearConfirmation.Visibility = Visibility.Visible;
-    private void CancelClearHistory_Click(object sender, RoutedEventArgs e) => ClearConfirmation.Visibility = Visibility.Collapsed;
-
-    private async void ConfirmClearHistory_Click(object sender, RoutedEventArgs e)
+    private async void ClearHistory_Click(object sender, RoutedEventArgs e)
     {
         await RunOperation(async () =>
         {
+            if (!await AskHistoryConfirmationAsync("ClearHistory", UiText.Get("DeleteConfirm"),
+                    "ClearHistory", ClearHistoryButton))
+                return;
+
             await EnsureHistoryLoadedAsync();
             var cutoff = DateTime.UtcNow;
             if (!TrySavePreferences(_preferences with { HistoryClearedUtc = cutoff }))
@@ -786,7 +800,6 @@ public partial class MainWindow : Window
             _lastCapturePath = null;
             _lastCaptureImage = null;
             _savedRevision = _revision;
-            ClearConfirmation.Visibility = Visibility.Collapsed;
             RefreshHistory([]);
             Report(UiText.Get("HistoryCleared"));
         });
@@ -807,6 +820,8 @@ public partial class MainWindow : Window
 
     private void OnStateChanged(object? sender, EventArgs e)
     {
+        if (WindowState == WindowState.Minimized)
+            CancelHistoryConfirmation();
         if (MaximizeGlyph is not null)
             MaximizeGlyph.BorderThickness = WindowState == WindowState.Maximized ? new Thickness(2, 2, 1, 1) : new Thickness(1);
         ObserveWorkspaceState();

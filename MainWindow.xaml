@@ -671,6 +671,22 @@
                 </Border>
             </Grid>
 
+            <Grid x:Name="HistoryConfirmationLayer" Grid.Row="1" Panel.ZIndex="11" Background="#B00B1016"
+                  Visibility="Collapsed" KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.ControlTabNavigation="Cycle">
+                <Border Width="418" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="22"
+                        Background="{StaticResource Panel}" BorderBrush="#475668" BorderThickness="1" CornerRadius="15">
+                    <StackPanel>
+                        <TextBlock x:Name="HistoryConfirmationTitle" FontSize="21" FontWeight="Bold" Margin="0,0,0,9"/>
+                        <TextBlock x:Name="HistoryConfirmationMessage" Style="{StaticResource MutedText}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,17,0,0">
+                            <Button x:Name="HistoryConfirmationCancel" Style="{StaticResource GhostButton}" Margin="0,0,6,0"
+                                    Content="{DynamicResource Ui.Cancel}" Click="CancelHistoryAction_Click"/>
+                            <Button x:Name="HistoryConfirmationAction" Style="{StaticResource PrimaryButton}" Click="ConfirmHistoryAction_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
             <Grid x:Name="SettingsLayer" Grid.Row="1" Panel.ZIndex="10" Background="#B00B1016" Visibility="Collapsed">
                 <Border Width="465" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="23"
                         Background="{StaticResource Panel}" BorderBrush="#475668" BorderThickness="1" CornerRadius="15">
@@ -734,13 +750,6 @@
                                     Click="ResetStorageFolder_Click" Margin="4,0,0,0"/>
                             <Button x:Name="ClearHistoryButton" Style="{StaticResource GhostButton}" Content="{DynamicResource Ui.ClearHistory}" Click="ClearHistory_Click" Margin="4,0,0,0"/>
                         </StackPanel>
-                        <Border x:Name="ClearConfirmation" Background="{StaticResource Canvas}" Padding="11" CornerRadius="8" Margin="0,8,0,0" Visibility="Collapsed">
-                            <DockPanel>
-                                <Button DockPanel.Dock="Right" Content="{DynamicResource Ui.ClearHistory}" Click="ConfirmClearHistory_Click"/>
-                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Content="{DynamicResource Ui.Cancel}" Click="CancelClearHistory_Click" Margin="0,0,6,0"/>
-                                <TextBlock Text="{DynamicResource Ui.DeleteConfirm}" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                            </DockPanel>
-                        </Border>
                         </StackPanel>
                         </ScrollViewer>
                     </Grid>

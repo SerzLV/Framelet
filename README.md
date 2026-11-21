@@ -92,15 +92,10 @@ Framelet keeps the original images and edit history for edited screenshots in `%
 
 ## Build from source
 
-Build on Windows with the .NET 10 SDK. Run these commands from the repository root.
+From the repository root on Windows with the .NET 10 SDK, run the release script to create `Framelet.exe`, `Framelet-win-x64.zip` with licenses, and `SHA256SUMS.txt` in `publish`.
 
 ```powershell
-dotnet build -c Release
-dotnet publish -c Release -r win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:DebugType=None -o publish
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\Build-Release.ps1
 ```
 
 Run `publish\Framelet.exe`. The executable includes the .NET Desktop Runtime and OCR models. Closing the window keeps Framelet in the notification area. To exit, right-click the tray icon and select **Quit**.
