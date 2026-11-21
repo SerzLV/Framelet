@@ -16,6 +16,7 @@ public sealed partial class EditorSurface
     private static readonly Brush DarkTextShadow = (Brush)new SolidColorBrush(Color.FromArgb(100, 0, 0, 0)).GetAsFrozen();
     private static readonly Brush LightTextShadow = (Brush)new SolidColorBrush(Color.FromArgb(135, 255, 255, 255)).GetAsFrozen();
     private AnnotationTextDraft? _textInput;
+    private (Annotation Mark, int Index)? _pendingTextClick;
 
     internal bool IsEditingText => _textInput is not null;
 
@@ -30,6 +31,12 @@ public sealed partial class EditorSurface
     }
 
     internal void CommitTextInput() => FinishTextInput(save: true);
+
+    private void StartTextClick(Annotation mark, int index = -1)
+    {
+        if (CaptureMouse())
+            _pendingTextClick = (mark, index);
+    }
 
     private void BeginTextInput(Annotation mark, int index = -1)
     {

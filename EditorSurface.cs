@@ -308,6 +308,7 @@ public sealed partial class EditorSurface : FrameworkElement
     internal void CancelDraft()
     {
         _draft = null;
+        _pendingTextClick = null;
         _dragHandle = -1;
         _moveStart = null;
         Cursor = ToolCursor;
@@ -381,7 +382,7 @@ public sealed partial class EditorSurface : FrameworkElement
             if (e.ClickCount == 2 && FindAnnotation(start) is var index && index >= 0 && _marks[index].Tool == EditorTool.Text)
             {
                 SelectAnnotation(index);
-                EditSelectedText();
+                StartTextClick(_marks[index], index);
             }
             else if (!TryDragHandle(start))
                 StartMovingAnnotation(start);
@@ -398,7 +399,7 @@ public sealed partial class EditorSurface : FrameworkElement
         switch (Tool)
         {
             case EditorTool.Text:
-                BeginTextInput(mark);
+                StartTextClick(mark);
                 break;
             case EditorTool.Number:
                 var number = _marks.Count(entry => entry.Tool == EditorTool.Number) + 1;
@@ -428,6 +429,14 @@ public sealed partial class EditorSurface : FrameworkElement
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
+        if (_pendingTextClick is { } text)
+        {
+            CancelDraft();
+            e.Handled = true;
+            BeginTextInput(text.Mark, text.Index);
+            return;
+        }
+
         if (_draft is null)
             return;
 
@@ -461,6 +470,7 @@ public sealed partial class EditorSurface : FrameworkElement
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         _draft = null;
+        _pendingTextClick = null;
         _dragHandle = -1;
         _moveStart = null;
         Cursor = ToolCursor;
