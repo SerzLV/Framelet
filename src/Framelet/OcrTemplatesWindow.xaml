@@ -2,8 +2,13 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Framelet"
-        Title="{DynamicResource Ui.OcrTemplates}" Width="960" Height="660" MinWidth="780" MinHeight="510"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" UseLayoutRounding="True">
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="{DynamicResource Ui.OcrTemplates}" Icon="Assets/Framelet.ico" Width="1040" Height="615" MinWidth="760" MinHeight="475"
+        Background="{StaticResource Window}" Foreground="{StaticResource Text}" FontFamily="Segoe UI" FontSize="13"
+        WindowStyle="None" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" UseLayoutRounding="True">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="43" CornerRadius="8" ResizeBorderThickness="5" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
     <Window.Resources>
         <Style TargetType="Label">
             <Setter Property="Foreground" Value="{StaticResource Text}"/>
@@ -37,18 +42,66 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="TemplateChoices" TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Resources>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="8,5"/>
+                    <Setter Property="Margin" Value="0,0,4,4"/>
+                    <Setter Property="FontSize" Value="12"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="Chip" CornerRadius="5" Padding="{TemplateBinding Padding}" Background="{StaticResource Canvas}"
+                                        BorderBrush="{StaticResource Stroke}" BorderThickness="1">
+                                    <ContentPresenter/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Chip" Property="Background" Value="{StaticResource PanelHover}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Style.Resources>
+        </Style>
     </Window.Resources>
-    <Grid Margin="20,16,20,16">
+    <Border Background="{StaticResource Window}" BorderBrush="{StaticResource Stroke}" BorderThickness="1">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="44"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TextBlock Text="{DynamicResource Ui.OcrTemplates}" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,15"/>
-        <Grid Grid.Row="1">
+        <Border Background="{StaticResource TitleBar}" BorderBrush="{StaticResource Stroke}" BorderThickness="0,0,0,1">
+            <DockPanel Margin="15,0,8,0">
+                <Button DockPanel.Dock="Right" Style="{StaticResource WindowButton}" IsCancel="True" shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                        AutomationProperties.Name="{DynamicResource Ui.Cancel}" ToolTip="{DynamicResource Ui.Cancel}">
+                    <Path Style="{StaticResource Icon}" Data="{StaticResource CloseIcon}" Width="12" Height="12"/>
+                </Button>
+                <Image DockPanel.Dock="Left" Source="Assets/Framelet.ico" Width="20" Height="20" Margin="0,0,8,0"/>
+                <TextBlock Text="{DynamicResource Ui.OcrTemplates}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+        <Grid Grid.Row="1" Margin="16,14,16,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="170"/>
-                <ColumnDefinition Width="290"/>
+                <ColumnDefinition Width="155"/>
+                <ColumnDefinition Width="300"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <DockPanel Margin="0,0,14,0">
@@ -68,15 +121,16 @@
                             <Label Content="{DynamicResource Ui.OcrTemplateName}" Target="{Binding ElementName=NameBox}"/>
                             <TextBox x:Name="NameBox" MaxLength="80" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
                             <Label Margin="0,12,0,0" Content="{DynamicResource Ui.OcrTemplateLabels}" Target="{Binding ElementName=LabelsBox}"/>
-                            <TextBox x:Name="LabelsBox" Height="88" MaxLength="2000" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                            <TextBox x:Name="LabelsBox" Height="83" MaxLength="2000" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
                                      TextWrapping="Wrap" Text="{Binding Labels, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="{DynamicResource Ui.OcrTemplateLabelsHint}" Style="{StaticResource MutedText}" FontSize="12"
                                        TextWrapping="Wrap" Margin="0,5,0,0"/>
                             <Label Margin="0,12,0,0" Content="{DynamicResource Ui.OcrTemplatePlacement}" Target="{Binding ElementName=PlacementBox}"/>
-                            <ListBox x:Name="PlacementBox" DisplayMemberPath="Label" SelectedValuePath="Value"
+                            <ListBox x:Name="PlacementBox" Style="{StaticResource TemplateChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
                                      SelectedValue="{Binding Placement, Mode=TwoWay}"/>
                             <Label Margin="0,12,0,0" Content="{DynamicResource Ui.OcrTemplateFormat}" Target="{Binding ElementName=FormatBox}"/>
-                            <ListBox x:Name="FormatBox" DisplayMemberPath="Label" SelectedValuePath="Value"
+                            <ListBox x:Name="FormatBox" Style="{StaticResource TemplateChoices}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                     ToolTip="{DynamicResource Ui.OcrTemplateFormatHint}"
                                      SelectedValue="{Binding Format, Mode=TwoWay}"/>
                         </StackPanel>
                     </ScrollViewer>
@@ -89,14 +143,17 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Button x:Name="CheckButton" Content="{DynamicResource Ui.OcrTemplateCheck}" Click="Check_Click"
-                        HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                <DockPanel Margin="0,0,0,8">
+                    <Button x:Name="CheckButton" DockPanel.Dock="Right" Content="{DynamicResource Ui.OcrTemplateCheck}" Click="Check_Click"/>
+                    <TextBlock Text="{DynamicResource Ui.OcrTemplatePreview}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,5,0"
+                               TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
                 <Border Grid.Row="1" Background="{StaticResource Canvas}" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
                         CornerRadius="8" Padding="8" ClipToBounds="True">
                     <Grid>
                         <TextBlock x:Name="PreviewUnavailable" Text="{DynamicResource Ui.OcrTemplateNoImage}" Style="{StaticResource MutedText}"
                                    TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <Viewbox x:Name="PreviewViewbox" StretchDirection="DownOnly" Visibility="Collapsed">
+                        <Viewbox x:Name="PreviewViewbox" Visibility="Collapsed">
                             <Grid x:Name="PreviewPixels">
                                 <Image x:Name="PreviewImage" Stretch="Fill"/>
                                 <local:OcrTextLayer x:Name="PreviewHighlights" IsHitTestVisible="False"/>
@@ -111,7 +168,7 @@
                          AutomationProperties.Name="{DynamicResource Ui.OcrDetected}"/>
             </Grid>
         </Grid>
-        <DockPanel Grid.Row="2" Margin="0,14,0,0">
+        <DockPanel Grid.Row="2" Margin="16,12,16,14">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0">
                 <Button Content="{DynamicResource Ui.Cancel}" IsCancel="True" Margin="0,0,8,0"/>
                 <Button x:Name="SaveButton" Content="{DynamicResource Ui.Save}" Click="Save_Click" Style="{StaticResource PrimaryButton}"/>
@@ -120,4 +177,5 @@
                        AutomationProperties.LiveSetting="Polite"/>
         </DockPanel>
     </Grid>
+    </Border>
 </Window>

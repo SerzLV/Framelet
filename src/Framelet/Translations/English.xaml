@@ -288,14 +288,15 @@
     <sys:String x:Key="Ui.OcrTemplateLabels">Labels to look for</sys:String>
     <sys:String x:Key="Ui.OcrTemplateLabelsHint">One per line, e.g. Invoice No. or Rēķina Nr.</sys:String>
     <sys:String x:Key="Ui.OcrTemplatePlacement">Where to read the value</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateSameLine">After the label</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateNextLine">On the next line</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateSameOrNextLine">After the label or on the next line</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateSameLine">Same line</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateNextLine">Next line</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateSameOrNextLine">Same or next line</sys:String>
     <sys:String x:Key="Ui.OcrTemplateFormat">Value format</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateCode">Code (e.g. INV-2026/001)</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateCode">Code</sys:String>
     <sys:String x:Key="Ui.OcrTemplateDigits">Digits only</sys:String>
     <sys:String x:Key="Ui.OcrTemplateAmount">Amount</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateDate">Date (e.g. 24.11.2026)</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateDate">Date</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateFormatHint">Example code is INV-2026/001. Example date is 24.11.2026.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateText">Rest of the line</sys:String>
     <sys:String x:Key="Ui.OcrTemplateCheck">Test on screenshot</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNoImage">Run text recognition in the editor to test a template on your screenshot.</sys:String>
@@ -303,4 +304,12 @@
     <sys:String x:Key="Ui.OcrTemplateDuplicate">A template with this name already exists.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNoMatches">No matches on this screenshot.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateMatches">Matches found: {0}</sys:String>
+    <sys:String x:Key="Ui.OcrHighlightAll">Highlight all</sys:String>
+    <sys:String x:Key="Ui.OcrRedactOptions">Hide fields</sys:String>
+    <sys:String x:Key="Ui.OcrOnlyNames">Names only</sys:String>
+    <sys:String x:Key="Ui.OcrChooseAllFields">All fields</sys:String>
+    <sys:String x:Key="Ui.OcrRedactSelected">Cover selected fields</sys:String>
+    <sys:String x:Key="Ui.OcrFieldsHidden">Selected fields covered. Review the screenshot before sharing.</sys:String>
+    <sys:String x:Key="Ui.PersonName">Name</sys:String>
+    <sys:String x:Key="Ui.OcrTemplatePreview">Preview</sys:String>
 </ResourceDictionary>

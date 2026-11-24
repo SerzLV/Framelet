@@ -14,6 +14,7 @@ internal enum ContactKind
     Iban,
     Amount,
     TotalAmount,
+    PersonName,
     Template
 }
 
@@ -90,6 +91,7 @@ internal static partial class ContactExtractor
         }
 
         contacts.AddRange(FindAddresses(text));
+        contacts.AddRange(PersonNameExtractor.Find(text));
 
         foreach (Match url in UrlPattern().Matches(text))
         {

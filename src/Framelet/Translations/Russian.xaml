@@ -288,14 +288,15 @@
     <sys:String x:Key="Ui.OcrTemplateLabels">Подписи для поиска</sys:String>
     <sys:String x:Key="Ui.OcrTemplateLabelsHint">По одной на строку, например «Счёт №» или Rēķina Nr.</sys:String>
     <sys:String x:Key="Ui.OcrTemplatePlacement">Где искать значение</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateSameLine">После подписи</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateNextLine">На следующей строке</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateSameOrNextLine">После подписи или строкой ниже</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateSameLine">В той же строке</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateNextLine">Строкой ниже</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateSameOrNextLine">Та же или следующая</sys:String>
     <sys:String x:Key="Ui.OcrTemplateFormat">Формат значения</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateCode">Код (например INV-2026/001)</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateCode">Код</sys:String>
     <sys:String x:Key="Ui.OcrTemplateDigits">Только цифры</sys:String>
     <sys:String x:Key="Ui.OcrTemplateAmount">Сумма</sys:String>
-    <sys:String x:Key="Ui.OcrTemplateDate">Дата (например 24.11.2026)</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateDate">Дата</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateFormatHint">Пример кода — INV-2026/001. Пример даты — 24.11.2026.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateText">Текст до конца строки</sys:String>
     <sys:String x:Key="Ui.OcrTemplateCheck">Проверить на снимке</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNoImage">Распознайте текст в редакторе, чтобы проверить шаблон на снимке.</sys:String>
@@ -303,4 +304,12 @@
     <sys:String x:Key="Ui.OcrTemplateDuplicate">Шаблон с таким названием уже есть.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNoMatches">На снимке нет совпадений.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateMatches">Найдено совпадений: {0}</sys:String>
+    <sys:String x:Key="Ui.OcrHighlightAll">Подсветить все</sys:String>
+    <sys:String x:Key="Ui.OcrRedactOptions">Скрыть поля</sys:String>
+    <sys:String x:Key="Ui.OcrOnlyNames">Только имена</sys:String>
+    <sys:String x:Key="Ui.OcrChooseAllFields">Все поля</sys:String>
+    <sys:String x:Key="Ui.OcrRedactSelected">Закрасить выбранные поля</sys:String>
+    <sys:String x:Key="Ui.OcrFieldsHidden">Выбранные поля закрашены. Проверьте снимок перед отправкой.</sys:String>
+    <sys:String x:Key="Ui.PersonName">Имя</sys:String>
+    <sys:String x:Key="Ui.OcrTemplatePreview">Предпросмотр</sys:String>
 </ResourceDictionary>

@@ -648,18 +648,40 @@
                                     <StackPanel x:Name="OcrResults" Visibility="Collapsed">
                                         <StackPanel x:Name="OcrContactsBlock" Visibility="Collapsed">
                                             <TextBlock Text="{DynamicResource Ui.OcrDetected}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
-                                            <StackPanel x:Name="OcrRedactActions" Margin="0,0,0,8" Visibility="Collapsed">
-                                                <Button Click="RedactOcrContacts_Click" HorizontalAlignment="Stretch"
-                                                        ToolTip="{DynamicResource Ui.OcrRedactTip}"
-                                                        AutomationProperties.HelpText="{DynamicResource Ui.OcrRedactSourceNote}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <Path Style="{StaticResource Icon}" Data="{StaticResource RedactIcon}" Width="15" Height="15"/>
-                                                        <TextBlock Text="{DynamicResource Ui.OcrRedactContacts}" Margin="7,0,0,0"/>
-                                                    </StackPanel>
-                                                </Button>
-                                                <TextBlock Text="{DynamicResource Ui.OcrRedactSourceNote}" Style="{StaticResource MutedText}"
-                                                           FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                                            </StackPanel>
+                                            <WrapPanel Margin="0,0,0,7">
+                                                <ToggleButton x:Name="OcrHighlightAll" Style="{StaticResource OptionToggle}" Click="OcrHighlightAll_Click"
+                                                              Content="{DynamicResource Ui.OcrHighlightAll}" Margin="0,0,6,3"/>
+                                                <ToggleButton x:Name="OcrRedactOptions" Style="{StaticResource OptionToggle}"
+                                                              Content="{DynamicResource Ui.OcrRedactOptions}" Margin="0,0,0,3"/>
+                                            </WrapPanel>
+                                            <Border Background="{StaticResource Canvas}" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                                                    CornerRadius="7" Padding="9" Margin="0,0,0,8">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsChecked, ElementName=OcrRedactOptions}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <StackPanel>
+                                                    <WrapPanel Margin="0,0,0,7">
+                                                        <Button x:Name="OcrChooseNames" Click="ChooseNames_Click" Padding="7,4" FontSize="11"
+                                                                Content="{DynamicResource Ui.OcrOnlyNames}" Margin="0,0,5,0"/>
+                                                        <Button Click="ChooseAll_Click" Padding="7,4" FontSize="11"
+                                                                Content="{DynamicResource Ui.OcrChooseAllFields}"/>
+                                                    </WrapPanel>
+                                                    <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                        <StackPanel x:Name="OcrRedactGroups"/>
+                                                    </ScrollViewer>
+                                                    <TextBlock Text="{DynamicResource Ui.OcrRedactSourceNote}" Style="{StaticResource MutedText}"
+                                                               FontSize="11" TextWrapping="Wrap" Margin="0,3,0,7"/>
+                                                    <Button x:Name="OcrApplyRedaction" Click="ApplyOcrRedaction_Click" Style="{StaticResource PrimaryButton}"
+                                                            Content="{DynamicResource Ui.OcrRedactSelected}" HorizontalAlignment="Stretch"/>
+                                                </StackPanel>
+                                            </Border>
                                             <ItemsControl x:Name="OcrContacts">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>

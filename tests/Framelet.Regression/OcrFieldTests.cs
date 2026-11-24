@@ -51,4 +51,21 @@ internal static partial class Program
         layer.SetLayout(null);
         Require(layer.Visibility == Visibility.Collapsed, "Clearing OCR removes any visible field highlight");
     }
+
+    private static void OcrFindsNamesForRedaction()
+    {
+        var layout = TemplateLayout("Full name: Jean-Luc O’Neill\nCompany name: North Studio\n"
+            + "Ф.И.О.:\nИван Сергеев\nVārds, uzvārds: Līga Bērziņa\n"
+            + "_______ /А.А. Сергеев/\n/Петрова М. В./\nEmail: example@example.com");
+        var (fields, contacts) = OcrService.ReadFields(layout, "LV");
+        var names = fields.Where(field => field.Kind == ContactKind.PersonName).ToArray();
+        Require(names.Select(field => field.Value)
+            .SequenceEqual(["Jean-Luc O’Neill", "Иван Сергеев", "Līga Bērziņa", "А.А. Сергеев", "Петрова М. В."]),
+            "Name detection recognizes labelled names and signatures in English, Russian and Latvian");
+        Require(names.All(field => field.Regions.Count == 1)
+            && names[0].Regions[0].Left > 45 && names[3].Regions[0].Left >= 38,
+            "Name regions follow the name spans and leave the labels and signature line visible");
+        Require(contacts.Count() == 1 && names.All(field => !contacts.Contains(field.Regions[0])),
+            "Explicit name detection leaves the quick editor's default contact redaction unchanged");
+    }
 }

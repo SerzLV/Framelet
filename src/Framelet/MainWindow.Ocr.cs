@@ -15,7 +15,7 @@ public partial class MainWindow
     private Button? _ocrCopiedButton;
     private int _ocrCopyVersion;
     private bool _copyWhenOcrReady;
-    private IReadOnlyList<Rect> _contactRegions = [];
+    private Rect[] _ocrFieldRegions = [];
     private RecognizedImage? _ocrResult;
 
     private async void Ocr_Click(object sender, RoutedEventArgs e) => await OpenOcrAsync();
@@ -77,8 +77,6 @@ public partial class MainWindow
             OcrText.Text = result.Text;
             _ocrResult = result;
             UpdateOcrFields();
-            _contactRegions = result.ContactRegions;
-            OcrRedactActions.Visibility = _contactRegions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             OcrResults.Visibility = Visibility.Visible;
             OcrCanvasText.SetLayout(result.Layout);
             UpdateOcrImageMode();
@@ -147,8 +145,11 @@ public partial class MainWindow
     private void ClearOcrResults()
     {
         _ocrResult = null;
-        _contactRegions = [];
-        OcrRedactActions.Visibility = Visibility.Collapsed;
+        _ocrFieldRegions = [];
+        OcrHighlightAll.IsChecked = false;
+        OcrHighlightAll.IsEnabled = false;
+        OcrRedactOptions.IsChecked = false;
+        OcrRedactGroups.Children.Clear();
         ClearOcrCopyFeedback();
         OcrCanvasText.SetLayout(null);
         UpdateOcrImageMode();
@@ -166,11 +167,20 @@ public partial class MainWindow
             return;
 
         ClearOcrCopyFeedback();
-        OcrCanvasText.SetHighlightedRegions([]);
         var customFields = OcrService.ReadTemplateFields(result.Layout, _preferences.OcrTemplates ?? []);
-        OcrContacts.ItemsSource = result.Contacts.Concat(customFields).ToArray();
-        OcrContactsBlock.Visibility = result.Contacts.Count + customFields.Length > 0
-            ? Visibility.Visible : Visibility.Collapsed;
+        var fields = result.Contacts.Concat(customFields).ToArray();
+        OcrContacts.ItemsSource = fields;
+        OcrContactsBlock.Visibility = fields.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _ocrFieldRegions = fields.SelectMany(field => field.Regions).Distinct().ToArray();
+        OcrHighlightAll.IsEnabled = _ocrFieldRegions.Length > 0;
+        OcrRedactOptions.IsEnabled = OcrHighlightAll.IsEnabled;
+        if (_ocrFieldRegions.Length == 0)
+        {
+            OcrHighlightAll.IsChecked = false;
+            OcrRedactOptions.IsChecked = false;
+        }
+        SetFieldHighlight();
+        BuildRedactionOptions(fields);
     }
 
     private async void OcrTemplates_Click(object sender, RoutedEventArgs e)
@@ -203,18 +213,68 @@ public partial class MainWindow
         }
     }
 
-    private void RedactOcrContacts_Click(object sender, RoutedEventArgs e)
+    private void BuildRedactionOptions(IEnumerable<RecognizedContact> fields)
     {
-        if (_contactRegions.Count == 0 || _scannedOcrRevision != EditorImage.OcrRevision)
+        OcrRedactGroups.Children.Clear();
+        foreach (var group in fields.Where(field => field.Regions.Count > 0).GroupBy(field => (field.Kind, field.TemplateName)))
+        {
+            var choice = new CheckBox
+            {
+                Tag = new RedactionChoice(group.Key.Kind, group.SelectMany(field => field.Regions).Distinct().ToArray()),
+                IsChecked = group.Key.Kind is ContactKind.Email or ContactKind.Phone or ContactKind.Address or ContactKind.Location,
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            var label = new TextBlock { TextWrapping = TextWrapping.Wrap };
+            if (group.Key.TemplateName is { } name)
+                label.Text = name;
+            else
+                label.SetResourceReference(TextBlock.TextProperty, UiText.Key(group.Key.Kind.ToString()));
+            choice.Content = label;
+            choice.Checked += OcrRedactChoice_Changed;
+            choice.Unchecked += OcrRedactChoice_Changed;
+            OcrRedactGroups.Children.Add(choice);
+        }
+        OcrChooseNames.IsEnabled = RedactionChoices.Any(choice => ((RedactionChoice)choice.Tag).Kind == ContactKind.PersonName);
+        UpdateRedactButton();
+    }
+
+    private IEnumerable<CheckBox> RedactionChoices => OcrRedactGroups.Children.OfType<CheckBox>();
+
+    private void OcrRedactChoice_Changed(object sender, RoutedEventArgs e) => UpdateRedactButton();
+
+    private void UpdateRedactButton() => OcrApplyRedaction.IsEnabled = RedactionChoices.Any(choice => choice.IsChecked == true);
+
+    private void ChooseNames_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var choice in RedactionChoices)
+            choice.IsChecked = ((RedactionChoice)choice.Tag).Kind == ContactKind.PersonName;
+    }
+
+    private void ChooseAll_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var choice in RedactionChoices)
+            choice.IsChecked = true;
+    }
+
+    private void ApplyOcrRedaction_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ocrResult is null || _scannedOcrRevision != EditorImage.OcrRevision)
+            return;
+        var regions = RedactionChoices.Where(choice => choice.IsChecked == true)
+            .SelectMany(choice => ((RedactionChoice)choice.Tag).Regions).Distinct().ToArray();
+        if (regions.Length == 0)
             return;
 
         LeaveOcrImageMode();
-        EditorImage.RedactContacts(_contactRegions);
+        EditorImage.RedactContacts(regions);
         EditorImage.DeselectAnnotation();
         EditorImage.Focus();
-        SetOcrStatus("OcrContactsHidden");
-        Report(UiText.Get("OcrContactsHidden"));
+        SetOcrStatus("OcrFieldsHidden");
+        Report(UiText.Get("OcrFieldsHidden"));
     }
+
+    private sealed record RedactionChoice(ContactKind Kind, Rect[] Regions);
 
     private async void CopyOcrText_Click(object sender, RoutedEventArgs e)
     {
@@ -284,11 +344,16 @@ public partial class MainWindow
     private void OcrContact_MouseEnter(object sender, MouseEventArgs e)
     {
         if (sender is Button { DataContext: RecognizedContact field })
-            OcrCanvasText.SetHighlightedRegions(field.Regions);
+            SetFieldHighlight(field);
     }
 
     private void OcrContact_MouseLeave(object sender, MouseEventArgs e)
-        => OcrCanvasText.SetHighlightedRegions([]);
+        => SetFieldHighlight();
+
+    private void OcrHighlightAll_Click(object sender, RoutedEventArgs e) => SetFieldHighlight();
+
+    private void SetFieldHighlight(RecognizedContact? field = null) =>
+        OcrCanvasText.SetHighlightedRegions(OcrHighlightAll.IsChecked == true ? _ocrFieldRegions : field?.Regions ?? []);
 
     private async Task CopyRecognizedAsync(Button button, string text, string message)
     {
@@ -332,7 +397,7 @@ public partial class MainWindow
     private void RefreshOcrContactLabels()
     {
         ClearOcrCopyFeedback();
-        OcrCanvasText.SetHighlightedRegions([]);
+        SetFieldHighlight();
         if (OcrContacts.ItemsSource is { } contacts)
         {
             OcrContacts.ItemsSource = null;

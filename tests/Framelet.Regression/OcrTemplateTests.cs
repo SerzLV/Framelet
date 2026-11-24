@@ -51,6 +51,9 @@ internal static partial class Program
         var dialog = new OcrTemplatesWindow([InvoiceTemplate], TemplateLayout("Invoice No.: INV-001"), image);
         dialog.Loaded += (_, _) =>
         {
+            Require(dialog.Background is SolidColorBrush background && background.Color == Color.FromRgb(16, 21, 28)
+                && dialog.Foreground is SolidColorBrush foreground && foreground.Color == Color.FromRgb(241, 245, 250)
+                && dialog.WindowStyle == WindowStyle.None, "The template window has a dark frame and readable foreground");
             var check = (Button)dialog.FindName("CheckButton");
             var results = (ListBox)dialog.FindName("MatchesList");
             var highlights = (OcrTextLayer)dialog.FindName("PreviewHighlights");
