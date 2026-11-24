@@ -275,6 +275,7 @@
     <sys:String x:Key="Ui.WorkspaceShortcutSaved">Tray shortcut saved</sys:String>
     <sys:String x:Key="Ui.CaptureShortcutSaved">Capture shortcut saved</sys:String>
     <sys:String x:Key="Ui.OcrTemplates">OCR templates</sys:String>
+    <sys:String x:Key="Ui.OcrManageTemplates">Manage templates</sys:String>
     <sys:String x:Key="Ui.OcrTemplatesFailure">Could not open OCR templates.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateAdd">New template</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNew">Untitled template</sys:String>

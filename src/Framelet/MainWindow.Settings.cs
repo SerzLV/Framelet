@@ -1,12 +1,48 @@
 using System.Diagnostics;
 using System.Security;
 using System.Windows;
+using System.Windows.Controls;
 using Microsoft.Win32;
 
 namespace Framelet;
 
 public partial class MainWindow
 {
+    private enum SettingsTab { General, Ocr, OcrTemplates }
+
+    private void SettingsTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string name } && Enum.TryParse<SettingsTab>(name, out var tab))
+            SelectSettingsTab(tab);
+    }
+
+    private void SelectSettingsTab(SettingsTab tab)
+    {
+        if (tab != SettingsTab.General)
+        {
+            StopRecordingWorkspaceShortcut();
+            StopRecordingCaptureShortcut();
+        }
+        if (tab == SettingsTab.Ocr)
+            RefreshOcrModels();
+        if (tab == SettingsTab.OcrTemplates)
+            RefreshOcrTemplatesSettings();
+
+        GeneralSettingsTab.IsChecked = tab == SettingsTab.General;
+        OcrSettingsTab.IsChecked = tab == SettingsTab.Ocr;
+        OcrTemplatesSettingsTab.IsChecked = tab == SettingsTab.OcrTemplates;
+        GeneralSettingsPage.Visibility = tab == SettingsTab.General ? Visibility.Visible : Visibility.Collapsed;
+        OcrSettingsPage.Visibility = tab == SettingsTab.Ocr ? Visibility.Visible : Visibility.Collapsed;
+        OcrTemplatesSettingsPage.Visibility = tab == SettingsTab.OcrTemplates ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RefreshOcrTemplatesSettings()
+    {
+        var templates = _preferences.OcrTemplates ?? [];
+        SettingsOcrTemplates.ItemsSource = templates;
+        SettingsOcrTemplatesEmpty.Visibility = templates.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void RefreshStartupSetting()
     {
         try

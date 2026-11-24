@@ -750,10 +750,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        ShowSettings(ocr: false);
+        ShowSettings(SettingsTab.General);
     }
 
-    private void ShowSettings(bool ocr)
+    private void ShowSettings(SettingsTab tab)
     {
         OcrLanguagePicker.IsOpen = false;
         HotkeysSetting.IsChecked = _preferences.Hotkeys;
@@ -766,8 +766,8 @@ public partial class MainWindow : Window
         UpdateLanguageOptions();
         HomeView.IsEnabled = EditorView.IsEnabled = false;
         SettingsLayer.Visibility = Visibility.Visible;
-        SelectSettingsTab(ocr);
-        if (ocr)
+        SelectSettingsTab(tab);
+        if (tab == SettingsTab.Ocr)
             OcrCatalogSearch.Focus();
         else
             HotkeysSetting.Focus();

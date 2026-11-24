@@ -85,25 +85,7 @@ public partial class MainWindow
 
     private void ManageOcrLanguages_Click(object sender, RoutedEventArgs e)
     {
-        OcrLanguagePicker.IsOpen = false;
-        ShowSettings(ocr: true);
-    }
-
-    private void GeneralSettingsTab_Click(object sender, RoutedEventArgs e) => SelectSettingsTab(ocr: false);
-    private void OcrSettingsTab_Click(object sender, RoutedEventArgs e) => SelectSettingsTab(ocr: true);
-
-    private void SelectSettingsTab(bool ocr)
-    {
-        if (ocr)
-        {
-            StopRecordingWorkspaceShortcut();
-            StopRecordingCaptureShortcut();
-            RefreshOcrModels();
-        }
-        GeneralSettingsTab.IsChecked = !ocr;
-        OcrSettingsTab.IsChecked = ocr;
-        GeneralSettingsPage.Visibility = ocr ? Visibility.Collapsed : Visibility.Visible;
-        OcrSettingsPage.Visibility = ocr ? Visibility.Visible : Visibility.Collapsed;
+        ShowSettings(SettingsTab.Ocr);
     }
 
     private void RefreshOcrModels()

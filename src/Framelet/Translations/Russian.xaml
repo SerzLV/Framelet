@@ -275,6 +275,7 @@
     <sys:String x:Key="Ui.WorkspaceShortcutSaved">Сочетание для трея сохранено</sys:String>
     <sys:String x:Key="Ui.CaptureShortcutSaved">Сочетание для захвата сохранено</sys:String>
     <sys:String x:Key="Ui.OcrTemplates">Шаблоны OCR</sys:String>
+    <sys:String x:Key="Ui.OcrManageTemplates">Управлять шаблонами</sys:String>
     <sys:String x:Key="Ui.OcrTemplatesFailure">Не удалось открыть шаблоны OCR.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateAdd">Новый шаблон</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNew">Без названия</sys:String>

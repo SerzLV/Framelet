@@ -836,10 +836,12 @@
                         </DockPanel>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,13">
                             <RadioButton x:Name="GeneralSettingsTab" GroupName="SettingsTabs" Style="{StaticResource OptionToggle}"
-                                         Content="{DynamicResource Ui.GeneralSettings}" Click="GeneralSettingsTab_Click"
+                                         Content="{DynamicResource Ui.GeneralSettings}" Tag="General" Click="SettingsTab_Click"
                                          IsChecked="True" FontSize="13" MinWidth="96" Margin="0,0,6,0"/>
                             <RadioButton x:Name="OcrSettingsTab" GroupName="SettingsTabs" Style="{StaticResource OptionToggle}"
-                                         Content="OCR" Click="OcrSettingsTab_Click" FontSize="13" MinWidth="74"/>
+                                         Content="OCR" Tag="Ocr" Click="SettingsTab_Click" FontSize="13" MinWidth="74" Margin="0,0,6,0"/>
+                            <RadioButton x:Name="OcrTemplatesSettingsTab" GroupName="SettingsTabs" Style="{StaticResource OptionToggle}"
+                                         Content="{DynamicResource Ui.OcrTemplates}" Tag="OcrTemplates" Click="SettingsTab_Click" FontSize="13" MinWidth="118"/>
                         </StackPanel>
                         <ScrollViewer x:Name="GeneralSettingsPage" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
@@ -946,6 +948,25 @@
                                 </DockPanel>
                                 <TextBlock x:Name="OcrDownloadStatus" Style="{StaticResource MutedText}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,5,0,0" AutomationProperties.LiveSetting="Polite"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                        <ScrollViewer x:Name="OcrTemplatesSettingsPage" Grid.Row="2" Visibility="Collapsed"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
+                                <Button x:Name="OpenSettingsOcrTemplates" Content="{DynamicResource Ui.OcrManageTemplates}" Click="OcrTemplates_Click"
+                                        HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}" Margin="0,0,0,12"/>
+                                <TextBlock x:Name="SettingsOcrTemplatesEmpty" Text="{DynamicResource Ui.OcrTemplateEmpty}"
+                                           Style="{StaticResource MutedText}" TextWrapping="Wrap" FontSize="12"/>
+                                <ItemsControl x:Name="SettingsOcrTemplates" AutomationProperties.Name="{DynamicResource Ui.OcrTemplates}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource Canvas}" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                                                    CornerRadius="6" Padding="10,7" Margin="0,0,0,5">
+                                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>

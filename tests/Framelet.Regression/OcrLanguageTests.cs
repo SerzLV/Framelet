@@ -36,14 +36,16 @@ internal static partial class Program
     private static void OcrSettingsSwitchTabsAndSaveAutoLanguages(string root)
     {
         var store = new HistoryStore(Path.Combine(root, "ocr-settings"));
-        store.SavePreferences(new Preferences(Language: "en"));
+        store.SavePreferences(new Preferences(Language: "en", OcrTemplates: [InvoiceTemplate]));
         var window = new MainWindow(store, IntPtr.Zero);
         try
         {
             var general = (RadioButton)window.FindName("GeneralSettingsTab");
             var ocr = (RadioButton)window.FindName("OcrSettingsTab");
+            var templates = (RadioButton)window.FindName("OcrTemplatesSettingsTab");
             var generalPage = (ScrollViewer)window.FindName("GeneralSettingsPage");
             var ocrPage = (ScrollViewer)window.FindName("OcrSettingsPage");
+            var templatesPage = (ScrollViewer)window.FindName("OcrTemplatesSettingsPage");
             var catalog = (ListBox)window.FindName("OcrCatalog");
             var search = (TextBox)window.FindName("OcrCatalogSearch");
             var languages = (WrapPanel)window.FindName("OcrAutoModels");
@@ -62,8 +64,15 @@ internal static partial class Program
             russian.RaiseEvent(new RoutedEventArgs(CheckBox.ClickEvent));
             Require(OcrService.AutomaticLanguages == "lav+eng" && store.LoadPreferences().AutomaticOcrLanguages!.SequenceEqual(["lav", "eng"]),
                 "Changing Auto languages updates recognition and survives reloading preferences");
+            templates.RaiseEvent(new RoutedEventArgs(RadioButton.ClickEvent));
+            var savedTemplates = (ItemsControl)window.FindName("SettingsOcrTemplates");
+            var manage = (Button)window.FindName("OpenSettingsOcrTemplates");
+            Require(templates.IsChecked == true && templatesPage.Visibility == Visibility.Visible
+                && ocrPage.Visibility == Visibility.Collapsed && generalPage.Visibility == Visibility.Collapsed
+                && savedTemplates.Items.Cast<OcrTemplate>().Single().Name == InvoiceTemplate.Name && manage.IsEnabled,
+                "The dedicated templates tab lists saved rules and allows management without an open screenshot");
             general.RaiseEvent(new RoutedEventArgs(RadioButton.ClickEvent));
-            Require(general.IsChecked == true && ocrPage.Visibility == Visibility.Collapsed,
+            Require(general.IsChecked == true && ocrPage.Visibility == Visibility.Collapsed && templatesPage.Visibility == Visibility.Collapsed,
                 "Switching back returns to general settings");
         }
         finally

@@ -191,12 +191,15 @@ public partial class MainWindow
 
     private async void OcrTemplates_Click(object sender, RoutedEventArgs e)
     {
-        OcrTemplatesButton.IsEnabled = false;
+        if (sender is not Button { IsEnabled: true } entry)
+            return;
+
+        OcrTemplatesButton.IsEnabled = OpenSettingsOcrTemplates.IsEnabled = false;
         try
         {
             var result = _ocrResult;
             var image = result is null ? null : await EditorImage.ExportForOcrAsync();
-            if (!IsVisible || OcrPanel.Visibility != Visibility.Visible)
+            if (!IsVisible || !entry.IsVisible)
                 return;
             if (!ReferenceEquals(result, _ocrResult))
             {
@@ -206,7 +209,10 @@ public partial class MainWindow
 
             var dialog = new OcrTemplatesWindow(_preferences.OcrTemplates ?? [], result?.Layout, image) { Owner = this };
             if (dialog.ShowDialog() == true && TrySavePreferences(_preferences with { OcrTemplates = dialog.Templates }))
+            {
+                RefreshOcrTemplatesSettings();
                 UpdateOcrFields();
+            }
         }
         catch (Exception ex)
         {
@@ -215,7 +221,7 @@ public partial class MainWindow
         }
         finally
         {
-            OcrTemplatesButton.IsEnabled = true;
+            OcrTemplatesButton.IsEnabled = OpenSettingsOcrTemplates.IsEnabled = true;
         }
     }
 
