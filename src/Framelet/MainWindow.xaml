@@ -659,7 +659,8 @@
                                             <ItemsControl x:Name="OcrContacts">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Button Click="OcrContact_Click" ToolTip="{Binding Description}" AutomationProperties.Name="{Binding Description}"
+                                                        <Button Click="OcrContact_Click" MouseEnter="OcrContact_MouseEnter" MouseLeave="OcrContact_MouseLeave"
+                                                                ToolTip="{Binding Description}" AutomationProperties.Name="{Binding Description}"
                                                                 HorizontalContentAlignment="Stretch" Margin="0,0,0,5" Padding="8,5">
                                                             <DockPanel>
                                                                 <Path DockPanel.Dock="Right" Width="13" Height="13" Margin="7,0,0,0">

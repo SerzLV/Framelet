@@ -132,6 +132,9 @@
     <sys:String x:Key="Ui.Phone">Телефон</sys:String>
     <sys:String x:Key="Ui.Address">Адрес</sys:String>
     <sys:String x:Key="Ui.Location">Местоположение</sys:String>
+    <sys:String x:Key="Ui.Iban">IBAN</sys:String>
+    <sys:String x:Key="Ui.Amount">Сумма</sys:String>
+    <sys:String x:Key="Ui.TotalAmount">Итого</sys:String>
     <sys:String x:Key="Ui.Link">Ссылка</sys:String>
     <sys:String x:Key="Ui.HistoryToday">Сегодня, {0:HH:mm}</sys:String>
     <sys:String x:Key="Ui.HistoryDateFormat">dd.MM, HH:mm</sys:String>

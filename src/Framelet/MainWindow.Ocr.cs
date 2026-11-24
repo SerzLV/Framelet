@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace Framelet;
 
@@ -219,7 +220,7 @@ public partial class MainWindow
                 EditorImage.Focus();
             OcrCanvasText.ClearSelection();
         }
-        OcrCanvasText.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+        OcrCanvasText.SetActive(active);
         UpdateOcrSelectionAction();
         UpdateEditorToolState();
     }
@@ -234,6 +235,15 @@ public partial class MainWindow
         if (sender is Button { DataContext: RecognizedContact contact } button)
             await CopyRecognizedAsync(button, contact.Value, UiText.Format("CopiedContact", contact.Label));
     }
+
+    private void OcrContact_MouseEnter(object sender, MouseEventArgs e)
+    {
+        if (sender is Button { DataContext: RecognizedContact field })
+            OcrCanvasText.SetHighlightedRegions(field.Regions);
+    }
+
+    private void OcrContact_MouseLeave(object sender, MouseEventArgs e)
+        => OcrCanvasText.SetHighlightedRegions([]);
 
     private async Task CopyRecognizedAsync(Button button, string text, string message)
     {
@@ -277,6 +287,7 @@ public partial class MainWindow
     private void RefreshOcrContactLabels()
     {
         ClearOcrCopyFeedback();
+        OcrCanvasText.SetHighlightedRegions([]);
         if (OcrContacts.ItemsSource is { } contacts)
         {
             OcrContacts.ItemsSource = null;

@@ -24,9 +24,8 @@ internal static partial class OcrService
     internal static async Task<RecognizedImage> RecognizeAsync(BitmapSource image, string language, CancellationToken token)
     {
         var layout = await RecognizeLayoutAsync(image, language, includeWords: true, token).ConfigureAwait(false);
-        var matches = ContactExtractor.Find(layout.RawText, RegionInfo.CurrentRegion.TwoLetterISORegionName);
-        var contacts = matches.DistinctBy(match => (match.Contact.Kind, match.Identity)).Select(match => match.Contact).ToArray();
-        return new RecognizedImage(NormalizeShortcuts(layout.RawText), contacts, layout, ContactRegions(layout, matches));
+        var (fields, redactions) = ReadFields(layout, RegionInfo.CurrentRegion.TwoLetterISORegionName);
+        return new RecognizedImage(NormalizeShortcuts(layout.RawText), fields, layout, redactions);
     }
 
     internal static async Task<string> RecognizeTextAsync(BitmapSource image, CancellationToken token)
@@ -186,26 +185,37 @@ internal static partial class OcrService
         return new OcrLayout(text.ToString(), words);
     }
 
-    internal static Rect[] ContactRegions(OcrLayout layout, IReadOnlyList<ContactMatch> matches)
+    internal static (RecognizedContact[] Fields, Rect[] Redactions) ReadFields(OcrLayout layout, string region)
     {
-        var regions = new HashSet<Rect>();
-        foreach (var match in matches)
+        var financial = FinancialFieldExtractor.Find(layout.RawText);
+        var matches = ContactExtractor.Find(layout.RawText, region)
+            .Where(contact => contact.Contact.Kind != ContactKind.Phone || !financial.Any(field =>
+                contact.Start < field.Start + field.Length && field.Start < contact.Start + contact.Length))
+            .Concat(financial);
+        var fields = new List<RecognizedContact>();
+        var redactions = new HashSet<Rect>();
+        foreach (var group in matches.GroupBy(match => (match.Contact.Kind, match.Identity)))
         {
-            if (match.Contact.Kind == ContactKind.Link)
-                continue;
-
-            var end = match.Start + match.Length;
-            var words = layout.Words.Where(word => word.Offset >= 0 && word.Offset < end
-                && word.Offset + word.Text.Length > match.Start);
-            foreach (var line in words.GroupBy(word => word.Line))
-            {
-                var bounds = line.Select(word => word.Bounds).Aggregate(Rect.Union);
-                var padding = Math.Clamp(bounds.Height * 0.16, 2, 8);
-                bounds.Inflate(padding, padding);
-                regions.Add(bounds);
-            }
+            var regions = group.SelectMany(match => MatchRegions(layout, match)).Distinct().ToArray();
+            fields.Add(group.First().Contact with { Regions = regions });
+            if (group.Key.Kind is ContactKind.Email or ContactKind.Phone or ContactKind.Address or ContactKind.Location)
+                redactions.UnionWith(regions);
         }
-        return regions.ToArray();
+        return (fields.ToArray(), redactions.ToArray());
+    }
+
+    private static IEnumerable<Rect> MatchRegions(OcrLayout layout, ContactMatch match)
+    {
+        var end = match.Start + match.Length;
+        var words = layout.Words.Where(word => word.Offset >= 0 && word.Offset < end
+            && word.Offset + word.Text.Length > match.Start);
+        foreach (var line in words.GroupBy(word => word.Line))
+        {
+            var bounds = line.Select(word => word.Bounds).Aggregate(Rect.Union);
+            var padding = Math.Clamp(bounds.Height * 0.16, 2, 8);
+            bounds.Inflate(padding, padding);
+            yield return bounds;
+        }
     }
 
     internal static string NormalizeShortcuts(string text)

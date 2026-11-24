@@ -35,7 +35,10 @@ public sealed class OcrTextLayer : FrameworkElement
     private static readonly Brush SelectionFill = MakeBrush(Color.FromArgb(97, 190, 249, 122));
     private static readonly Brush SelectionEdge = MakeBrush(Color.FromArgb(225, 86, 151, 39));
     private static readonly Brush HoverFill = MakeBrush(Color.FromArgb(45, 199, 254, 142));
+    private static readonly Brush FieldFill = MakeBrush(Color.FromArgb(64, 255, 204, 115));
+    private static readonly Brush FieldEdge = MakeBrush(Color.FromRgb(221, 143, 44));
     private OcrLayout? _layout;
+    private IReadOnlyList<Rect> _highlightedRegions = [];
     private int _anchor = -1;
     private int _end = -1;
     private int _hover = -1;
@@ -55,13 +58,14 @@ public sealed class OcrTextLayer : FrameworkElement
     internal bool HasSelection => _anchor >= 0;
     internal bool HasPendingSelection => _pendingStart is not null || _selectAllWhenReady;
     internal bool HasWords => _layout?.Words.Count > 0;
-    internal bool IsActive => Visibility == Visibility.Visible;
+    internal bool IsActive { get; private set; }
     internal string SelectedText => HasSelection && _layout is not null
         ? _layout.GetText(Math.Min(_anchor, _end), Math.Max(_anchor, _end)) : "";
 
     internal void SetLayout(OcrLayout? layout)
     {
         _layout = layout;
+        SetHighlightedRegions([]);
         if (!HasWords)
         {
             ClearSelection();
@@ -88,6 +92,22 @@ public sealed class OcrTextLayer : FrameworkElement
         _zoom = zoom;
         InvalidateVisual();
     }
+
+    internal void SetActive(bool active)
+    {
+        IsActive = IsHitTestVisible = Focusable = active;
+        UpdateVisibility();
+    }
+
+    internal void SetHighlightedRegions(IReadOnlyList<Rect> regions)
+    {
+        _highlightedRegions = regions;
+        UpdateVisibility();
+        InvalidateVisual();
+    }
+
+    private void UpdateVisibility() => Visibility = IsActive || _highlightedRegions.Count > 0
+        ? Visibility.Visible : Visibility.Collapsed;
 
     internal void SelectAll()
     {
@@ -170,6 +190,15 @@ public sealed class OcrTextLayer : FrameworkElement
 
     protected override void OnRender(DrawingContext drawing)
     {
+        if (_highlightedRegions.Count > 0)
+        {
+            var edge = new Pen(FieldEdge, 1.4 / _zoom);
+            foreach (var bounds in _highlightedRegions)
+                DrawHighlight(drawing, bounds, FieldFill, edge);
+        }
+        if (!IsActive)
+            return;
+
         drawing.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
         if (_layout is not { } layout)
             return;

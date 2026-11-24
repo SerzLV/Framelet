@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Windows;
 using PhoneNumbers;
 
 namespace Framelet;
@@ -9,11 +10,15 @@ internal enum ContactKind
     Phone,
     Link,
     Address,
-    Location
+    Location,
+    Iban,
+    Amount,
+    TotalAmount
 }
 
 internal sealed record RecognizedContact(ContactKind Kind, string Value)
 {
+    internal IReadOnlyList<Rect> Regions { get; init; } = [];
     public string Label => UiText.Get(Kind.ToString());
     public string Description => $"{Label}: {Value}";
 }

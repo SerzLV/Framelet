@@ -21,6 +21,7 @@ internal static partial class Program
             DrawingPreferencesRememberColorAndStroke(directory.FullName);
             LanguageFollowsSystem();
             OcrDistinguishesYearsFromPhones();
+            OcrFieldsKeepTheirImageRegions();
             RegionSelectionUsesDesktopCoordinates();
             RegionSelectionResizesFromCorners();
             RegionSelectionMovesAndPlacesToolbar();
