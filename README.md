@@ -12,14 +12,12 @@ Press `Print Screen` to select an area and copy it with `Enter` or `Ctrl+C`. Use
 
 ![Framelet editor showing a curved arrow, an ellipse, and recognized text](docs/images/framelet-editor.png)
 
-## What's new in 1.1.0
+## What's new in 1.2.0
 
-- **Capture across monitors.** Drag a region across displays or click a highlighted window. Move an existing frame by dragging inside it and resize it from the corners. The arrow keys move it by one pixel, or ten with `Shift`.
-- **Edit before copying.** The toolbar next to the frame in quick and delayed captures lets you add annotations, copy recognized text, hide contact details, save, pin, or open the full editor. Choose **Adjust frame** before adding marks, or undo all marks to adjust it again.
-- **Type directly on the image.** Both editors let you enter and revise text in place. Numbered markers close the gap when you delete one, and undo restores it at its original position. Framelet remembers your last annotation color and thickness.
-- **Pin at original size.** Captures with known screen coordinates can be pinned at their original position in a 1:1 view with a visible border. If that area is off-screen, Framelet opens a compact preview on a connected display.
-- **Manage screenshots in batches.** Select, search, and recycle groups of screenshots with one confirmation and a progress counter. See [Manage screenshot history](#manage-screenshot-history) for mouse and keyboard controls.
-- **Cleaner scrolling captures and contact detection.** Detected fixed footers appear once in the stitched screenshot, and ranges like `2015–2020` are filtered out of phone detection unless the text identifies them as a phone number. The tray menu is more compact and keeps shortcuts readable.
+- **More OCR languages.** Install from a catalog of 123 Tesseract language models. Downloads show progress and can be canceled or retried. Installed models work offline, and you can choose which ones Auto uses together.
+- **OCR templates.** Create rules for invoice numbers, dates, amounts, IBANs, and other labelled values. Manage rules in Settings or from the editor, and test them on the current screenshot.
+- **Find and cover fields.** Hover over a result to locate it on the screenshot, or highlight all results at once. Cover selected categories, names only, or every detected field. OCR also detects IBANs, currency amounts, and labelled totals.
+- **Capture paginated screens.** The **Whole frames (↓)** mode captures apps that advance with the Down key. If two small shifts look like ordinary scrolling, Framelet offers to switch modes and keeps the beginning of the capture.
 
 ## Features
 
@@ -28,8 +26,8 @@ Press `Print Screen` to select an area and copy it with `Enter` or `Ctrl+C`. Use
 | **Screen capture** | Capture a region, the monitor under the pointer, or the active window. Use delayed capture or stitch together a long page with automatic or manual scrolling. |
 | **Editor** | Add curved arrows, lines, circles, rectangles, text, and numbered markers. Select existing annotations to move them or change their color and thickness. Crop, zoom with the mouse wheel, and pan with the Hand tool. |
 | **Text recognition** | Select and copy words directly from the screenshot. Auto OCR uses English, Latvian, and Russian by default. Choose a language in the editor or install more and customize Auto under **Settings → OCR**. Installed languages work offline. |
-| **Contact details** | Copy detected email addresses, phone numbers, postal addresses, and links individually. Use **Hide contact details** to cover detected emails, phone numbers, and addresses before exporting. |
-| **Screenshot history** | Search all saved screenshots by name or recognized text. Rename or copy an entry. Reopen saved screenshots with editable annotations and up to ten undo steps. |
+| **Detected fields** | Locate and copy recognized contact details, names, IBANs, and amounts. Use **Hide fields** to choose which categories to cover before exporting. |
+| **Screenshot history** | Search by name or recognized text, rename or copy an entry, and recycle groups of screenshots. Reopen saved screenshots with editable annotations and up to ten undo steps. |
 | **System tray** | Start Framelet with Windows, capture from the tray, and reopen the latest screenshot. Set a shortcut to show or hide Framelet. The app remembers your language, window size, and four most recent annotation colors. |
 
 The interface is available in English and Russian. Switch languages in Settings.
@@ -45,7 +43,7 @@ The interface is available in English and Russian. Switch languages in Settings.
 
 The table shows the defaults. Change the global capture shortcuts and the shortcut for opening the last screenshot in **Settings**.
 
-Framelet uses a Windows keyboard hook to handle plain `Print Screen` while the app is in the tray. The hook starts region capture and can be disabled in **Settings**. Auto-scroll sends mouse-wheel input to the selected window.
+Framelet uses a Windows keyboard hook to handle plain `Print Screen` while the app is in the tray. The hook starts region capture and can be disabled in **Settings**. Scrolling capture sends mouse-wheel input or the Down key, depending on the mode.
 
 | Shortcut | Action |
 | --- | --- |
@@ -89,6 +87,14 @@ Framelet uses a Windows keyboard hook to handle plain `Print Screen` while the a
 5. Click **Open screenshot** to inspect the stitched image and add annotations.
 
 To capture manually, scroll down a little at a time and click **Add frame**.
+
+For apps that advance one screen at a time when you press `↓`, enable **Whole frames (↓)** before starting auto-scroll. If Framelet detects two small scrolling shifts, choose **Use scrolling capture** to stitch the buffered frames or **Keep whole frames** to continue capturing each screen in full.
+
+## Recognize and cover fields
+
+Press `Ctrl+E` in the editor. Click a detected field to copy it, hover over it to locate it on the image, or choose **Highlight all**. Use **Hide fields** to choose what to cover, then click **Cover selected fields**. Review the result before sharing. With history enabled, the original remains in the local edit journal.
+
+Open **Settings → OCR templates** or **OCR templates** in the editor to define a rule. Enter the labels you expect to see, one per line, and choose where to look for the value and its format. Use **Test on screenshot** after running OCR to preview matches. The IBAN template format extracts the printed value. Built-in detection checks the length and checksum for the countries it supports.
 
 ## Manage screenshot history
 
