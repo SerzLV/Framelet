@@ -12,7 +12,7 @@ namespace Framelet;
 internal sealed record Preferences(bool Hotkeys = true, bool KeepHistory = true, string? Language = null, bool PrintScreen = true,
     string? StorageFolder = null, string[]? HistoryFolders = null, TrayShortcut? WorkspaceShortcut = null,
     WorkspaceSize? WindowSize = null, PalettePreferences? Palette = null, DateTime? HistoryClearedUtc = null,
-    Dictionary<int, TrayShortcut>? CaptureShortcuts = null);
+    Dictionary<int, TrayShortcut>? CaptureShortcuts = null, OcrTemplate[]? OcrTemplates = null);
 
 internal sealed record WorkspaceSize(double Width, double Height, bool Maximized)
 {

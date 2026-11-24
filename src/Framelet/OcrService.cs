@@ -204,6 +204,14 @@ internal static partial class OcrService
         return (fields.ToArray(), redactions.ToArray());
     }
 
+    internal static RecognizedContact[] ReadTemplateFields(OcrLayout layout, IEnumerable<OcrTemplate> templates) =>
+        OcrTemplateMatcher.Find(layout.RawText, templates)
+            .GroupBy(match => (match.Contact.TemplateName, match.Identity))
+            .Select(group => group.First().Contact with
+            {
+                Regions = group.SelectMany(match => MatchRegions(layout, match)).Distinct().ToArray()
+            }).ToArray();
+
     private static IEnumerable<Rect> MatchRegions(OcrLayout layout, ContactMatch match)
     {
         var end = match.Start + match.Length;

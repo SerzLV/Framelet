@@ -594,7 +594,11 @@
                                             Click="CloseOcr_Click" ToolTip="{DynamicResource Ui.OcrClose}" AutomationProperties.Name="{DynamicResource Ui.OcrClose}">
                                         <Path Style="{StaticResource Icon}" Data="{StaticResource CloseIcon}" Width="13" Height="13"/>
                                     </Button>
-                                    <TextBlock Text="{DynamicResource Ui.OcrTitle}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <Button x:Name="OcrTemplatesButton" DockPanel.Dock="Right" Click="OcrTemplates_Click"
+                                            Content="{DynamicResource Ui.OcrTemplates}" FontSize="11" Padding="8,4"
+                                            VerticalAlignment="Center" Margin="5,0,0,0"/>
+                                    <TextBlock Text="{DynamicResource Ui.OcrTitle}" FontSize="17" FontWeight="Bold" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
                                 </DockPanel>
                                 <DockPanel Margin="0,2,0,10">
                                     <StackPanel x:Name="OcrLanguages" DockPanel.Dock="Right" Orientation="Horizontal">

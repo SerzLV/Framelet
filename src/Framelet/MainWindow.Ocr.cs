@@ -16,6 +16,7 @@ public partial class MainWindow
     private int _ocrCopyVersion;
     private bool _copyWhenOcrReady;
     private IReadOnlyList<Rect> _contactRegions = [];
+    private RecognizedImage? _ocrResult;
 
     private async void Ocr_Click(object sender, RoutedEventArgs e) => await OpenOcrAsync();
     private async void RefreshOcr_Click(object sender, RoutedEventArgs e) => await RecognizeOcrAsync();
@@ -74,8 +75,8 @@ public partial class MainWindow
 
             OcrStatus.Visibility = Visibility.Collapsed;
             OcrText.Text = result.Text;
-            OcrContacts.ItemsSource = result.Contacts;
-            OcrContactsBlock.Visibility = result.Contacts.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            _ocrResult = result;
+            UpdateOcrFields();
             _contactRegions = result.ContactRegions;
             OcrRedactActions.Visibility = _contactRegions.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             OcrResults.Visibility = Visibility.Visible;
@@ -145,6 +146,7 @@ public partial class MainWindow
 
     private void ClearOcrResults()
     {
+        _ocrResult = null;
         _contactRegions = [];
         OcrRedactActions.Visibility = Visibility.Collapsed;
         ClearOcrCopyFeedback();
@@ -156,6 +158,49 @@ public partial class MainWindow
         OcrResults.Visibility = Visibility.Collapsed;
         OcrContacts.ItemsSource = null;
         OcrText.Clear();
+    }
+
+    private void UpdateOcrFields()
+    {
+        if (_ocrResult is not { } result)
+            return;
+
+        ClearOcrCopyFeedback();
+        OcrCanvasText.SetHighlightedRegions([]);
+        var customFields = OcrService.ReadTemplateFields(result.Layout, _preferences.OcrTemplates ?? []);
+        OcrContacts.ItemsSource = result.Contacts.Concat(customFields).ToArray();
+        OcrContactsBlock.Visibility = result.Contacts.Count + customFields.Length > 0
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OcrTemplates_Click(object sender, RoutedEventArgs e)
+    {
+        OcrTemplatesButton.IsEnabled = false;
+        try
+        {
+            var result = _ocrResult;
+            var image = result is null ? null : await EditorImage.ExportForOcrAsync();
+            if (!IsVisible || OcrPanel.Visibility != Visibility.Visible)
+                return;
+            if (!ReferenceEquals(result, _ocrResult))
+            {
+                result = null;
+                image = null;
+            }
+
+            var dialog = new OcrTemplatesWindow(_preferences.OcrTemplates ?? [], result?.Layout, image) { Owner = this };
+            if (dialog.ShowDialog() == true && TrySavePreferences(_preferences with { OcrTemplates = dialog.Templates }))
+                UpdateOcrFields();
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(ex);
+            Report(UiText.Get("OcrTemplatesFailure"), true);
+        }
+        finally
+        {
+            OcrTemplatesButton.IsEnabled = true;
+        }
     }
 
     private void RedactOcrContacts_Click(object sender, RoutedEventArgs e)

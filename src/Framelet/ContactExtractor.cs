@@ -13,13 +13,15 @@ internal enum ContactKind
     Location,
     Iban,
     Amount,
-    TotalAmount
+    TotalAmount,
+    Template
 }
 
 internal sealed record RecognizedContact(ContactKind Kind, string Value)
 {
     internal IReadOnlyList<Rect> Regions { get; init; } = [];
-    public string Label => UiText.Get(Kind.ToString());
+    internal string? TemplateName { get; init; }
+    public string Label => TemplateName ?? UiText.Get(Kind.ToString());
     public string Description => $"{Label}: {Value}";
 }
 

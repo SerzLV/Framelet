@@ -10,6 +10,9 @@ internal static partial class FinancialFieldExtractor
     private const string Money = @"(?:" + Currency + Space + "*" + Number + "|" + Number + Space + "*" + Currency + ")";
     private const string End = @"(?![\p{L}\p{N}]|[.,][0-9])";
 
+    [GeneratedRegex("^(?:" + Money + "|" + Number + ")" + End, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    internal static partial Regex AmountAtStart();
+
     internal static IReadOnlyList<ContactMatch> Find(string text)
     {
         var fields = new List<ContactMatch>();
