@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace Framelet;
 
 internal enum OcrTemplatePlacement { SameLine, NextLine, SameOrNextLine }
-internal enum OcrTemplateFormat { Code, Digits, Amount, Date, Text }
+internal enum OcrTemplateFormat { Code, Digits, Amount, Date, Text, Iban }
 
 internal sealed record OcrTemplate(string Name, string[] Labels, OcrTemplatePlacement Placement, OcrTemplateFormat Format);
 
@@ -32,6 +32,10 @@ internal static partial class OcrTemplateMatcher
             var pattern = @"(?<![\p{L}\p{N}_])(?:" + string.Join("|", labels) + @")(?![\p{L}\p{N}_])";
             foreach (Match label in Regex.Matches(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
             {
+                // Older rules with the literal IBAN label should capture the whole grouped value.
+                var format = label.Value.Equals("IBAN", StringComparison.OrdinalIgnoreCase)
+                    && template.Format is OcrTemplateFormat.Code or OcrTemplateFormat.Digits or OcrTemplateFormat.Text
+                    ? OcrTemplateFormat.Iban : template.Format;
                 var start = label.Index + label.Length;
                 var end = EndOfLine(text, start);
                 while (start < end && LabelSeparators.Contains(text[start]))
@@ -42,13 +46,13 @@ internal static partial class OcrTemplateMatcher
                 {
                     if (end == text.Length)
                         continue;
-                    start = end + (text[end] == '\r' && end + 1 < text.Length && text[end + 1] == '\n' ? 2 : 1);
-                    end = EndOfLine(text, start);
-                    while (start < end && char.IsWhiteSpace(text[start]))
-                        start++;
+                    (start, end) = NextValueLine(text, end);
+                    // Tesseract separates the label and value with a blank line when it sees two blocks.
+                    if (format == OcrTemplateFormat.Iban && start == end && end < text.Length)
+                        (start, end) = NextValueLine(text, end);
                 }
 
-                var value = ReadValue(text[start..end].TrimEnd(), template.Format);
+                var value = ReadValue(text[start..end].TrimEnd(), format);
                 if (value.Length > 0)
                     yield return new ContactMatch(new RecognizedContact(ContactKind.Template, value)
                     {
@@ -56,6 +60,15 @@ internal static partial class OcrTemplateMatcher
                     }, value, start, value.Length);
             }
         }
+    }
+
+    private static (int Start, int End) NextValueLine(string text, int lineEnd)
+    {
+        var start = lineEnd + (text[lineEnd] == '\r' && lineEnd + 1 < text.Length && text[lineEnd + 1] == '\n' ? 2 : 1);
+        var end = EndOfLine(text, start);
+        while (start < end && char.IsWhiteSpace(text[start]))
+            start++;
+        return (start, end);
     }
 
     private static int EndOfLine(string text, int start)
@@ -71,8 +84,21 @@ internal static partial class OcrTemplateMatcher
         OcrTemplateFormat.Amount => FinancialFieldExtractor.AmountAtStart().Match(line).Value,
         OcrTemplateFormat.Date => ReadDate(line),
         OcrTemplateFormat.Text => line,
+        OcrTemplateFormat.Iban => ReadIbanValue(line),
         _ => ""
     };
+
+    private static string ReadIbanValue(string line)
+    {
+        var match = IbanValue().Match(line);
+        if (!match.Success)
+            return "";
+
+        var checkDigits = match.Groups["checks"];
+        // Only these two positions are known to be digits for every country.
+        return line[..checkDigits.Index] + checkDigits.Value.Replace('O', '0').Replace('o', '0')
+            + line[(checkDigits.Index + checkDigits.Length)..match.Length];
+    }
 
     private static string ReadDate(string line)
     {
@@ -85,6 +111,11 @@ internal static partial class OcrTemplateMatcher
 
     [GeneratedRegex(@"^[0-9]+(?![\p{L}\p{N}_/-]|[.,][0-9])")]
     private static partial Regex Digits();
+
+    // Labelled OCR extracts the printed value. The built-in IBAN detector validates it separately.
+    [GeneratedRegex(@"^[A-Z]{2}[ \t\u00A0\u202F]*(?<checks>[0-9O][ \t\u00A0\u202F]*[0-9O])(?:[ \t\u00A0\u202F]*[A-Z0-9]){11,30}?(?=\s*(?:$|[,;|]|(?:BIC|SWIFT)\s*[:=]))",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex IbanValue();
 
     [GeneratedRegex(@"^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{1,2}(?:\.[0-9]{1,2}\.|/[0-9]{1,2}/)[0-9]{4})(?![\p{L}\p{N}/-]|\.[0-9])")]
     private static partial Regex Date();

@@ -23,6 +23,7 @@ internal static partial class Program
             OcrDistinguishesYearsFromPhones();
             OcrFieldsKeepTheirImageRegions();
             OcrTemplatesFindLabelledValues(directory.FullName);
+            OcrReadsGroupedIbanBelowItsLabel();
             OcrFindsNamesForRedaction();
             OcrLanguageCatalogKeepsTheDefault(directory.FullName);
             RegionSelectionUsesDesktopCoordinates();

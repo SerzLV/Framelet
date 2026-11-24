@@ -294,6 +294,7 @@
     <sys:String x:Key="Ui.OcrTemplateDate">Date</sys:String>
     <sys:String x:Key="Ui.OcrTemplateFormatHint">Example code is INV-2026/001. Example date is 24.11.2026.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateText">Rest of the line</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateIban">IBAN</sys:String>
     <sys:String x:Key="Ui.OcrTemplateCheck">Test on screenshot</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNoImage">Run text recognition in the editor to test a template on your screenshot.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateIncomplete">Enter a name and at least one label.</sys:String>

@@ -76,6 +76,27 @@ internal static partial class Program
             "Saving the template dialog returns the edited name and placement");
     }
 
+    private static void OcrReadsGroupedIbanBelowItsLabel()
+    {
+        const string printedSample = "PT00 0000 000123456789101112";
+        const string validExample = "PT50 0002 0123 1234 5678 9015 4";
+        var layout = TemplateLayout("Comprovativo de IBAN / SWIFT\nCliente\nIBAN\n\nPTOO 0000 000123456789101112\nBIC/SWIFT\nTOTAPTPL");
+        var template = new OcrTemplate("IBAN", ["IBAN"], OcrTemplatePlacement.SameOrNextLine, OcrTemplateFormat.Text);
+        foreach (var format in new[] { OcrTemplateFormat.Code, OcrTemplateFormat.Text, OcrTemplateFormat.Iban })
+        {
+            var match = OcrService.ReadTemplateFields(layout, [template with { Format = format }]).Single();
+            Require(match.Value == printedSample && match.Regions.Single().Top >= 78,
+                $"IBAN templates skip the heading and highlight the complete printed account ({format})");
+        }
+        var alias = template with { Labels = ["Account"], Format = OcrTemplateFormat.Iban };
+        var valid = TemplateLayout($"Account: {validExample} BIC: TOTAPTPL\n{printedSample}");
+        Require(OcrService.ReadTemplateFields(valid, [alias]).Single().Value == validExample,
+            "The IBAN format supports other labels and stops before the adjacent BIC field");
+        var (fields, _) = OcrService.ReadFields(valid, "PT");
+        Require(fields.Single(field => field.Kind == ContactKind.Iban).Value == "PT50000201231234567890154",
+            "Built-in detection validates Portuguese IBANs and rejects the placeholder account");
+    }
+
     private static OcrLayout TemplateLayout(string text)
     {
         var words = new List<OcrWord>();

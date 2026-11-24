@@ -47,6 +47,7 @@ internal static partial class FinancialFieldExtractor
             "LV" => (21, 4, false),
             "DE" => (22, 0, true),
             "GB" => (22, 4, true),
+            "PT" => (25, 0, true),
             _ => (0, 0, false)
         };
         end = start;
@@ -70,6 +71,10 @@ internal static partial class FinancialFieldExtractor
         if (end < text.Length && char.IsLetterOrDigit(text[end]))
             return null;
 
+        var checkDigits = (iban[2] - '0') * 10 + iban[3] - '0';
+        if (checkDigits is < 2 or > 98)
+            return null;
+
         var remainder = 0;
         for (var index = 0; index < iban.Length; index++)
         {
@@ -79,7 +84,7 @@ internal static partial class FinancialFieldExtractor
         return remainder == 1 ? new string(iban) : null;
     }
 
-    [GeneratedRegex(@"(?<![\p{L}\p{N}@])(?:EE|LT|LV|DE|GB)" + Space + "*[0-9]{2}", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 250)]
+    [GeneratedRegex(@"(?<![\p{L}\p{N}@])(?:EE|LT|LV|DE|GB|PT)" + Space + "*[0-9]{2}", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 250)]
     private static partial Regex IbanStart();
 
     [GeneratedRegex(@"(?<![\p{L}\p{N}.,])" + Money + End, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 250)]

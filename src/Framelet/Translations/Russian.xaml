@@ -294,6 +294,7 @@
     <sys:String x:Key="Ui.OcrTemplateDate">Дата</sys:String>
     <sys:String x:Key="Ui.OcrTemplateFormatHint">Пример кода — INV-2026/001. Пример даты — 24.11.2026.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateText">Текст до конца строки</sys:String>
+    <sys:String x:Key="Ui.OcrTemplateIban">IBAN</sys:String>
     <sys:String x:Key="Ui.OcrTemplateCheck">Проверить на снимке</sys:String>
     <sys:String x:Key="Ui.OcrTemplateNoImage">Распознайте текст в редакторе, чтобы проверить шаблон на снимке.</sys:String>
     <sys:String x:Key="Ui.OcrTemplateIncomplete">Укажите название и хотя бы одну подпись.</sys:String>
