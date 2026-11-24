@@ -16,7 +16,7 @@ namespace Framelet;
 
 public partial class MainWindow : Window
 {
-    private readonly HistoryStore _history = new();
+    private readonly HistoryStore _history;
     private readonly DispatcherTimer _editSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(850) };
     private readonly List<Window> _pins = [];
     private IReadOnlyList<HistoryItem> _recent = [];
@@ -34,14 +34,21 @@ public partial class MainWindow : Window
     private Point? _panStart;
     private Vector _panOffsets;
 
-    public MainWindow()
+    public MainWindow() : this(new HistoryStore(), ((App)Application.Current).InitialForeground)
     {
+    }
+
+    internal MainWindow(HistoryStore history, IntPtr initialForeground)
+    {
+        _history = history;
         _preferences = _history.LoadPreferences();
+        OcrService.ConfigureAutomaticLanguages(_preferences.AutomaticOcrLanguages);
         _history.ConfigureStorage(_preferences);
-        _foregroundTracker = new ForegroundWindowTracker(((App)Application.Current).InitialForeground);
+        _foregroundTracker = new ForegroundWindowTracker(initialForeground);
         _printScreen = new PrintScreenShortcut(Dispatcher, RequestQuickCapture, () => !_captureInProgress);
         UiText.Apply(_preferences.Language);
         InitializeComponent();
+        UpdateOcrLanguageLabel();
         SettingsVersion.Text = "v" + typeof(MainWindow).Assembly.GetName().Version?.ToString(3);
         HistoryItems.ItemsSource = _historyCards;
         InitializeCaptureShortcuts();
@@ -106,6 +113,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _ocrDownload?.Cancel();
         CancelHistoryConfirmation();
         CancelOcrRequest();
         _appearanceSaveTimer.Stop();
@@ -546,6 +554,11 @@ public partial class MainWindow : Window
 
     private async void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (OcrLanguagePicker.IsOpen)
+        {
+            OcrLanguagePicker_KeyDown(sender, e);
+            return;
+        }
         if (_historyConfirmation is not null)
         {
             if (e.Key == Key.Escape)
@@ -737,6 +750,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        ShowSettings(ocr: false);
+    }
+
+    private void ShowSettings(bool ocr)
+    {
+        OcrLanguagePicker.IsOpen = false;
         HotkeysSetting.IsChecked = _preferences.Hotkeys;
         EndCrop(returnFocus: false);
         HistorySetting.IsChecked = _preferences.KeepHistory;
@@ -747,7 +766,11 @@ public partial class MainWindow : Window
         UpdateLanguageOptions();
         HomeView.IsEnabled = EditorView.IsEnabled = false;
         SettingsLayer.Visibility = Visibility.Visible;
-        HotkeysSetting.Focus();
+        SelectSettingsTab(ocr);
+        if (ocr)
+            OcrCatalogSearch.Focus();
+        else
+            HotkeysSetting.Focus();
     }
 
     private void CloseSettings_Click(object sender, RoutedEventArgs e) => CloseSettings();
@@ -800,6 +823,9 @@ public partial class MainWindow : Window
         _historyCards.Clear();
         RefreshHistory(_recent);
         RefreshOcrContactLabels();
+        UpdateOcrLanguageLabel();
+        if (OcrSettingsPage.IsVisible)
+            RefreshOcrModels();
         if (_tray?.ContextMenuStrip is TrayMenu menu)
             menu.UpdateLanguage();
         Report(UiText.Get(EditorView.Visibility == Visibility.Visible ? "CaptureReady" : "Ready"));

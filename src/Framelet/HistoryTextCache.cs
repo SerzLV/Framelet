@@ -10,7 +10,7 @@ internal sealed class HistoryTextCache(string folder)
     private const int FormatVersion = 1;
     private const int MaximumTextLength = 64 * 1024;
 
-    internal string? Read(string imagePath, ImageStamp stamp)
+    internal string? Read(string imagePath, ImageStamp stamp, string languages = OcrService.DefaultAutomaticLanguages)
     {
         var path = EntryPath(imagePath);
         try
@@ -19,7 +19,8 @@ internal sealed class HistoryTextCache(string folder)
                 return null;
             using var stream = File.OpenRead(path);
             var entry = JsonSerializer.Deserialize<Entry>(stream);
-            return entry is { Version: FormatVersion } && entry.Stamp == stamp ? entry.Text : null;
+            return entry is { Version: FormatVersion } && entry.Stamp == stamp
+                && (entry.Languages ?? OcrService.DefaultAutomaticLanguages) == languages ? entry.Text : null;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -28,12 +29,12 @@ internal sealed class HistoryTextCache(string folder)
         }
     }
 
-    internal void Write(string imagePath, ImageStamp stamp, string text)
+    internal void Write(string imagePath, ImageStamp stamp, string text, string languages = OcrService.DefaultAutomaticLanguages)
     {
         if (text.Length > MaximumTextLength)
             return;
         TryUpdate(() => HistoryStore.AtomicWrite(EntryPath(imagePath), stream =>
-            JsonSerializer.Serialize(stream, new Entry(FormatVersion, stamp, text))));
+            JsonSerializer.Serialize(stream, new Entry(FormatVersion, stamp, text, languages))));
     }
 
     internal void Remove(string imagePath) => TryUpdate(() => File.Delete(EntryPath(imagePath)));
@@ -70,7 +71,7 @@ internal sealed class HistoryTextCache(string folder)
         }
     }
 
-    private sealed record Entry(int Version, ImageStamp Stamp, string Text);
+    private sealed record Entry(int Version, ImageStamp Stamp, string Text, string? Languages = null);
 }
 
 internal sealed record ImageStamp(long Length, DateTime LastWriteUtc, DateTime CreatedUtc)

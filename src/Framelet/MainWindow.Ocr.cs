@@ -39,9 +39,12 @@ public partial class MainWindow
 
     private async void OcrLanguage_Click(object sender, RoutedEventArgs e)
     {
+        OcrLanguagePicker.IsOpen = false;
+        OcrLanguageButton.Focus();
         if (sender is Button { Tag: string language } && language != _ocrLanguage)
         {
             _ocrLanguage = language;
+            UpdateOcrLanguageLabel();
             await RecognizeOcrAsync();
         }
     }
@@ -49,9 +52,6 @@ public partial class MainWindow
     private async Task RecognizeOcrAsync()
     {
         CancelOcrRequest();
-        foreach (var button in OcrLanguages.Children.OfType<Button>())
-            SetSelected(button, (string)button.Tag == _ocrLanguage, accentText: true);
-
         using var request = new CancellationTokenSource();
         _ocrRequest = request;
         _scannedOcrRevision = EditorImage.OcrRevision;
@@ -91,7 +91,12 @@ public partial class MainWindow
             Trace.WriteLine(ex);
             if (_ocrRequest == request)
             {
-                SetOcrStatus(ex.GetBaseException() is DllNotFoundException ? "OcrNativeFailure" : "OcrFailure");
+                SetOcrStatus(ex switch
+                {
+                    UserFacingException known => known.ResourceKey,
+                    _ when ex.GetBaseException() is DllNotFoundException => "OcrNativeFailure",
+                    _ => "OcrFailure"
+                });
                 RefreshOcrButton.Visibility = Visibility.Visible;
             }
         }
@@ -124,6 +129,7 @@ public partial class MainWindow
             return;
 
         var returnFocus = OcrPanel.IsKeyboardFocusWithin;
+        OcrLanguagePicker.IsOpen = false;
         CancelOcrRequest();
         ClearOcrResults();
         OcrPanel.Visibility = Visibility.Collapsed;

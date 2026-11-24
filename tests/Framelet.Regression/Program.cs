@@ -24,6 +24,7 @@ internal static partial class Program
             OcrFieldsKeepTheirImageRegions();
             OcrTemplatesFindLabelledValues(directory.FullName);
             OcrFindsNamesForRedaction();
+            OcrLanguageCatalogKeepsTheDefault(directory.FullName);
             RegionSelectionUsesDesktopCoordinates();
             RegionSelectionResizesFromCorners();
             RegionSelectionMovesAndPlacesToolbar();
@@ -47,6 +48,7 @@ internal static partial class Program
                 PinnedCaptureUsesConnectedDisplays(app);
                 TextAnnotationCompletionPreservesUndo();
                 OcrTemplateDialogPreviewsMatches();
+                OcrSettingsSwitchTabsAndSaveAutoLanguages(directory.FullName);
             }
             finally
             {

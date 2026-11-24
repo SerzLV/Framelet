@@ -27,7 +27,7 @@ Press `Print Screen` to select an area and copy it with `Enter` or `Ctrl+C`. Use
 | --- | --- |
 | **Screen capture** | Capture a region, the monitor under the pointer, or the active window. Use delayed capture or stitch together a long page with automatic or manual scrolling. |
 | **Editor** | Add curved arrows, lines, circles, rectangles, text, and numbered markers. Select existing annotations to move them or change their color and thickness. Crop, zoom with the mouse wheel, and pan with the Hand tool. |
-| **Text recognition** | Select and copy words directly from the screenshot. OCR runs locally and recognizes English, Latvian, and Russian. Auto mode can read all three languages in one image. |
+| **Text recognition** | Select and copy words directly from the screenshot. Auto OCR uses English, Latvian, and Russian by default. Choose a language in the editor or install more and customize Auto under **Settings → OCR**. Installed languages work offline. |
 | **Contact details** | Copy detected email addresses, phone numbers, postal addresses, and links individually. Use **Hide contact details** to cover detected emails, phone numbers, and addresses before exporting. |
 | **Screenshot history** | Search all saved screenshots by name or recognized text. Rename or copy an entry. Reopen saved screenshots with editable annotations and up to ten undo steps. |
 | **System tray** | Start Framelet with Windows, capture from the tray, and reopen the latest screenshot. Set a shortcut to show or hide Framelet. The app remembers your language, window size, and four most recent annotation colors. |

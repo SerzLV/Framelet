@@ -15,31 +15,38 @@ internal sealed record RecognizedImage(string Text, IReadOnlyList<RecognizedCont
 internal static partial class OcrService
 {
     internal const string AutomaticMode = "auto";
-    private const string MixedLanguages = "rus+lav+eng";
+    internal const string DefaultAutomaticLanguages = "rus+lav+eng";
+    private static volatile string _automaticLanguages = DefaultAutomaticLanguages;
     private static readonly SemaphoreSlim Worker = new(1);
     private static TesseractEngine? _engine;
     private static string? _engineLanguages;
     private static volatile bool _shuttingDown;
 
+    internal static string AutomaticLanguages => _automaticLanguages;
+    internal static void ConfigureAutomaticLanguages(IEnumerable<string>? codes) =>
+        _automaticLanguages = OcrLanguages.Automatic(codes);
+
     internal static async Task<RecognizedImage> RecognizeAsync(BitmapSource image, string language, CancellationToken token)
     {
-        var layout = await RecognizeLayoutAsync(image, language, includeWords: true, token).ConfigureAwait(false);
+        var layout = await RecognizeLayoutAsync(image, language, AutomaticLanguages, includeWords: true, token).ConfigureAwait(false);
         var (fields, redactions) = ReadFields(layout, RegionInfo.CurrentRegion.TwoLetterISORegionName);
         return new RecognizedImage(NormalizeShortcuts(layout.RawText), fields, layout, redactions);
     }
 
-    internal static async Task<string> RecognizeTextAsync(BitmapSource image, CancellationToken token)
+    internal static async Task<string> RecognizeTextAsync(BitmapSource image, string automaticLanguages, CancellationToken token)
     {
-        var layout = await RecognizeLayoutAsync(image, AutomaticMode, includeWords: false, token).ConfigureAwait(false);
+        var layout = await RecognizeLayoutAsync(image, AutomaticMode, automaticLanguages, includeWords: false, token).ConfigureAwait(false);
         return NormalizeShortcuts(layout.RawText);
     }
 
-    private static async Task<OcrLayout> RecognizeLayoutAsync(BitmapSource image, string language, bool includeWords, CancellationToken token)
+    private static async Task<OcrLayout> RecognizeLayoutAsync(BitmapSource image, string language, string automaticLanguages,
+        bool includeWords, CancellationToken token)
     {
         await Worker.WaitAsync(token).ConfigureAwait(false);
         try
         {
-            return await Task.Run(() => Recognize(image, language, includeWords, token), token).ConfigureAwait(false);
+            return await Task.Run(() => Recognize(image, language == AutomaticMode ? automaticLanguages : language,
+                includeWords, language == AutomaticMode && automaticLanguages.Contains('+'), token), token).ConfigureAwait(false);
         }
         finally
         {
@@ -49,13 +56,12 @@ internal static partial class OcrService
         }
     }
 
-    private static OcrLayout Recognize(BitmapSource image, string language, bool includeWords, CancellationToken token)
+    private static OcrLayout Recognize(BitmapSource image, string languages, bool includeWords, bool automatic, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        var automatic = language == AutomaticMode;
         if (_shuttingDown)
             throw new OperationCanceledException();
-        var engine = GetEngine(automatic ? MixedLanguages : language);
+        var engine = GetEngine(languages);
         return image.PixelHeight > 4700 && image.PixelHeight > image.PixelWidth * 2L
             ? RecognizeTallImage(engine, image, includeWords, automatic, token)
             : RecognizePage(engine, image, includeWords, automatic, token);
@@ -69,8 +75,7 @@ internal static partial class OcrService
         _engine?.Dispose();
         _engine = null;
         _engineLanguages = null;
-        var directory = Path.GetDirectoryName(typeof(OcrService).Assembly.Location) ?? AppContext.BaseDirectory;
-        var engine = new TesseractEngine(Path.Combine(directory, "Assets", "Ocr"), languages, EngineMode.LstmOnly);
+        var engine = new TesseractEngine(OcrLanguages.ModelDirectory(languages), languages, EngineMode.LstmOnly);
         try
         {
             engine.SetVariable("user_defined_dpi", "144");

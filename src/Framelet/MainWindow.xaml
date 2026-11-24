@@ -601,20 +601,31 @@
                                                TextTrimming="CharacterEllipsis"/>
                                 </DockPanel>
                                 <DockPanel Margin="0,2,0,10">
-                                    <StackPanel x:Name="OcrLanguages" DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Button Tag="auto" Click="OcrLanguage_Click" Content="{DynamicResource Ui.OcrAuto}" FontSize="11" Padding="8,4"
-                                                ToolTip="{DynamicResource Ui.OcrAutoHint}" AutomationProperties.Name="{DynamicResource Ui.OcrAutoHint}"/>
-                                        <Button Tag="rus+eng" Click="OcrLanguage_Click" Content="RU + EN" FontSize="11" Padding="8,4" Margin="4,0,0,0"
-                                                ToolTip="{DynamicResource Ui.OcrBoth}"/>
-                                        <Button Tag="rus" Click="OcrLanguage_Click" Content="RU" FontSize="11" Padding="8,4" Margin="4,0,0,0"
-                                                ToolTip="{DynamicResource Ui.OcrRussian}"/>
-                                        <Button Tag="eng" Click="OcrLanguage_Click" Content="EN" FontSize="11" Padding="8,4" Margin="4,0,0,0"
-                                                ToolTip="{DynamicResource Ui.OcrEnglish}"/>
-                                        <Button Tag="lav" Click="OcrLanguage_Click" Content="LV" FontSize="11" Padding="8,4" Margin="4,0,0,0"
-                                                ToolTip="{DynamicResource Ui.OcrLatvian}" AutomationProperties.Name="{DynamicResource Ui.OcrLatvian}"/>
-                                    </StackPanel>
+                                    <Button x:Name="OcrLanguageButton" DockPanel.Dock="Right" Click="OpenOcrLanguagePicker_Click"
+                                            MaxWidth="197" Padding="8,4" FontSize="12"
+                                            AutomationProperties.Name="{DynamicResource Ui.OcrLanguageTitle}">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="▾" Margin="8,0,0,0"/>
+                                            <TextBlock x:Name="OcrLanguageLabel" TextTrimming="CharacterEllipsis"/>
+                                        </DockPanel>
+                                    </Button>
                                     <TextBlock Text="{DynamicResource Ui.Language}" Style="{StaticResource MutedText}" FontSize="12" VerticalAlignment="Center"/>
                                 </DockPanel>
+                                <Popup x:Name="OcrLanguagePicker" PlacementTarget="{Binding ElementName=OcrLanguageButton}" Placement="Bottom"
+                                       StaysOpen="False" AllowsTransparency="True" Opened="OcrLanguagePicker_Opened" Closed="OcrLanguagePicker_Closed">
+                                    <Border Width="260" Background="{StaticResource Panel}" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                                            CornerRadius="8" Padding="8" PreviewKeyDown="OcrLanguagePicker_KeyDown">
+                                        <StackPanel>
+                                            <TextBox x:Name="OcrPickerSearch" TextChanged="OcrPickerSearch_Changed" Margin="0,0,0,6"
+                                                     AutomationProperties.Name="{DynamicResource Ui.OcrSearchLanguages}"
+                                                     ToolTip="{DynamicResource Ui.OcrSearchLanguages}"/>
+                                            <ScrollViewer MaxHeight="215" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                <StackPanel x:Name="OcrPickerLanguages"/>
+                                            </ScrollViewer>
+                                            <Button Click="ManageOcrLanguages_Click" Content="{DynamicResource Ui.OcrManageLanguages}" Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
                                 <DockPanel x:Name="OcrImageControls" Margin="0,0,0,10" Visibility="Collapsed">
                                     <Button x:Name="OcrCopySelectionButton" DockPanel.Dock="Right" Click="CopyOcrSelection_Click"
                                             Padding="7,4" FontSize="11" IsEnabled="False"
@@ -812,10 +823,10 @@
             </Grid>
 
             <Grid x:Name="SettingsLayer" Grid.Row="1" Panel.ZIndex="10" Background="#B00B1016" Visibility="Collapsed">
-                <Border Width="465" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="23"
+                <Border Width="520" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="23"
                         Background="{StaticResource Panel}" BorderBrush="#475668" BorderThickness="1" CornerRadius="15">
                     <Grid>
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <DockPanel Margin="0,0,0,13">
                             <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Click="CloseSettings_Click"
                                     AutomationProperties.Name="{DynamicResource Ui.CloseSettings}"><Path Style="{StaticResource Icon}" Data="{StaticResource CloseIcon}" /></Button>
@@ -823,7 +834,14 @@
                                        VerticalAlignment="Center" Margin="0,0,12,0" FontSize="12"/>
                             <TextBlock Text="{DynamicResource Ui.Settings}" FontSize="23" FontWeight="Bold" VerticalAlignment="Center"/>
                         </DockPanel>
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,13">
+                            <RadioButton x:Name="GeneralSettingsTab" GroupName="SettingsTabs" Style="{StaticResource OptionToggle}"
+                                         Content="{DynamicResource Ui.GeneralSettings}" Click="GeneralSettingsTab_Click"
+                                         IsChecked="True" FontSize="13" MinWidth="96" Margin="0,0,6,0"/>
+                            <RadioButton x:Name="OcrSettingsTab" GroupName="SettingsTabs" Style="{StaticResource OptionToggle}"
+                                         Content="OCR" Click="OcrSettingsTab_Click" FontSize="13" MinWidth="74"/>
+                        </StackPanel>
+                        <ScrollViewer x:Name="GeneralSettingsPage" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                         <DockPanel Margin="0,1,0,15">
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -875,6 +893,60 @@
                             <Button x:Name="ClearHistoryButton" Style="{StaticResource GhostButton}" Content="{DynamicResource Ui.ClearHistory}" Click="ClearHistory_Click" Margin="4,0,0,0"/>
                         </StackPanel>
                         </StackPanel>
+                        </ScrollViewer>
+                        <ScrollViewer x:Name="OcrSettingsPage" Grid.Row="2" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Ui.OcrAutomaticLanguages}" FontWeight="SemiBold" FontSize="15"/>
+                                <TextBlock Text="{DynamicResource Ui.OcrAutomaticLanguagesHint}" Style="{StaticResource MutedText}"
+                                           TextWrapping="Wrap" FontSize="12" Margin="0,4,0,8"/>
+                                <WrapPanel x:Name="OcrAutoModels"/>
+                                <TextBlock x:Name="OcrAutoStatus" Foreground="{StaticResource Accent}" FontSize="12"
+                                           TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+                                <Border Height="1" Background="{StaticResource Stroke}" Margin="0,9,0,12"/>
+                                <Label Content="{DynamicResource Ui.OcrSearchLanguages}" Target="{Binding ElementName=OcrCatalogSearch}"
+                                       Foreground="{StaticResource Text}" Padding="0,0,0,5" FontWeight="SemiBold"/>
+                                <TextBox x:Name="OcrCatalogSearch" TextChanged="OcrCatalogSearch_Changed" Margin="0,0,0,6"/>
+                                <ListBox x:Name="OcrCatalog" Height="155" DisplayMemberPath="DisplayName"
+                                         Background="{StaticResource Canvas}" Foreground="{StaticResource Text}" BorderBrush="{StaticResource Stroke}"
+                                         AutomationProperties.Name="{DynamicResource Ui.OcrAvailableLanguages}"
+                                         SelectionChanged="OcrCatalog_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="8,5"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Border x:Name="Row" Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Row" Property="Background" Value="{StaticResource PanelHover}"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="Row" Property="Background" Value="{StaticResource PanelHover}"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                </ListBox>
+                                <TextBlock x:Name="OcrCatalogEmpty" Text="{DynamicResource Ui.OcrNoLanguages}" Style="{StaticResource MutedText}"
+                                           FontSize="12" Visibility="Collapsed" Margin="0,6,0,0"/>
+                                <DockPanel Margin="0,8,0,0">
+                                    <Button x:Name="OcrCancelDownload" DockPanel.Dock="Right" Content="{DynamicResource Ui.Cancel}"
+                                            Click="OcrCancelDownload_Click" Visibility="Collapsed" Margin="6,0,0,0"/>
+                                    <Button x:Name="OcrInstallLanguage" DockPanel.Dock="Right" Content="{DynamicResource Ui.OcrInstallLanguage}"
+                                            Style="{StaticResource PrimaryButton}" Click="OcrInstallLanguage_Click" IsEnabled="False"/>
+                                    <TextBlock x:Name="OcrModelSize" Style="{StaticResource MutedText}" FontSize="12" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <TextBlock x:Name="OcrDownloadStatus" Style="{StaticResource MutedText}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,5,0,0" AutomationProperties.LiveSetting="Polite"/>
+                            </StackPanel>
                         </ScrollViewer>
                     </Grid>
                 </Border>

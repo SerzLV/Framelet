@@ -12,7 +12,8 @@ namespace Framelet;
 internal sealed record Preferences(bool Hotkeys = true, bool KeepHistory = true, string? Language = null, bool PrintScreen = true,
     string? StorageFolder = null, string[]? HistoryFolders = null, TrayShortcut? WorkspaceShortcut = null,
     WorkspaceSize? WindowSize = null, PalettePreferences? Palette = null, DateTime? HistoryClearedUtc = null,
-    Dictionary<int, TrayShortcut>? CaptureShortcuts = null, OcrTemplate[]? OcrTemplates = null);
+    Dictionary<int, TrayShortcut>? CaptureShortcuts = null, OcrTemplate[]? OcrTemplates = null,
+    string[]? AutomaticOcrLanguages = null);
 
 internal sealed record WorkspaceSize(double Width, double Height, bool Maximized)
 {
@@ -319,19 +320,20 @@ internal sealed class HistoryStore
 
     internal async Task<string> ReadHistoryTextAsync(string path, CancellationToken token)
     {
+        var languages = OcrService.AutomaticLanguages;
         var entry = await Task.Run(() =>
         {
             lock (_gate)
             {
                 var stamp = ImageStamp.FromPath(path);
-                return (Stamp: stamp, Text: _textCache.Read(path, stamp), ClearedUtc: _historyClearedUtc);
+                return (Stamp: stamp, Text: _textCache.Read(path, stamp, languages), ClearedUtc: _historyClearedUtc);
             }
         }, token).ConfigureAwait(false);
         if (entry.Text is { } cached)
             return cached;
 
         var image = await Task.Run(() => OpenImage(path), token).ConfigureAwait(false);
-        var text = await OcrService.RecognizeTextAsync(image, token).ConfigureAwait(false);
+        var text = await OcrService.RecognizeTextAsync(image, languages, token).ConfigureAwait(false);
         await Task.Run(() =>
         {
             lock (_gate)
@@ -340,7 +342,7 @@ internal sealed class HistoryStore
                 if (File.Exists(path) && entry.ClearedUtc == _historyClearedUtc
                     && (_historyClearedUtc is null || ReadCreatedUtc(path) > _historyClearedUtc)
                     && ImageStamp.FromPath(path) == entry.Stamp)
-                    _textCache.Write(path, entry.Stamp, text);
+                    _textCache.Write(path, entry.Stamp, text, languages);
             }
         }, token).ConfigureAwait(false);
         return text;

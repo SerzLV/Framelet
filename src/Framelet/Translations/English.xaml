@@ -66,12 +66,7 @@
     <sys:String x:Key="Ui.RedoTip">Redo · Ctrl+Y</sys:String>
     <sys:String x:Key="Ui.OcrClose">Close OCR</sys:String>
     <sys:String x:Key="Ui.OcrTitle">Screenshot text</sys:String>
-    <sys:String x:Key="Ui.OcrBoth">Russian and English</sys:String>
     <sys:String x:Key="Ui.OcrAuto">Auto</sys:String>
-    <sys:String x:Key="Ui.OcrAutoHint">Russian, Latvian, and English in the same screenshot</sys:String>
-    <sys:String x:Key="Ui.OcrRussian">Russian</sys:String>
-    <sys:String x:Key="Ui.OcrEnglish">English</sys:String>
-    <sys:String x:Key="Ui.OcrLatvian">Latvian</sys:String>
     <sys:String x:Key="Ui.Language">Language</sys:String>
     <sys:String x:Key="Ui.OcrRefresh">Scan again</sys:String>
     <sys:String x:Key="Ui.OcrDetected">Detected details</sys:String>
@@ -312,4 +307,19 @@
     <sys:String x:Key="Ui.OcrFieldsHidden">Selected fields covered. Review the screenshot before sharing.</sys:String>
     <sys:String x:Key="Ui.PersonName">Name</sys:String>
     <sys:String x:Key="Ui.OcrTemplatePreview">Preview</sys:String>
+    <sys:String x:Key="Ui.GeneralSettings">General</sys:String>
+    <sys:String x:Key="Ui.OcrLanguageTitle">OCR language</sys:String>
+    <sys:String x:Key="Ui.OcrSearchLanguages">Find a language</sys:String>
+    <sys:String x:Key="Ui.OcrManageLanguages">Manage OCR languages…</sys:String>
+    <sys:String x:Key="Ui.OcrAutomaticLanguages">Languages in Auto mode</sys:String>
+    <sys:String x:Key="Ui.OcrAutomaticLanguagesHint">Select the languages that Auto should use together. Installed models work offline.</sys:String>
+    <sys:String x:Key="Ui.OcrAvailableLanguages">Languages available to install</sys:String>
+    <sys:String x:Key="Ui.OcrInstallLanguage">Install language</sys:String>
+    <sys:String x:Key="Ui.OcrKeepOneLanguage">Keep at least one language in Auto mode.</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadSize">Download · {0}</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadWorking">Downloading {0}…</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadSuccess">{0} is ready for OCR.</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadFailure">Could not install the language. Check your connection and try again.</sys:String>
+    <sys:String x:Key="Ui.OcrModelUnavailable">This OCR model is unavailable. Install it in OCR settings.</sys:String>
+    <sys:String x:Key="Ui.OcrNoLanguages">No matching languages available to install.</sys:String>
 </ResourceDictionary>
