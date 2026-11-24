@@ -10,6 +10,7 @@ namespace Framelet;
 public partial class MainWindow
 {
     private CancellationTokenSource? _ocrDownload;
+    private string? _failedOcrDownload;
     private OcrLanguage[] _installedOcrLanguages = [];
     private OcrLanguage[] _availableOcrLanguages = [];
 
@@ -162,9 +163,13 @@ public partial class MainWindow
         if (OcrInstallLanguage is null)
             return;
         var selection = OcrCatalog.SelectedItem as OcrLanguage;
-        OcrInstallLanguage.IsEnabled = selection is not null && _ocrDownload is null;
+        var downloading = _ocrDownload is not null;
+        OcrInstallLanguage.IsEnabled = selection is not null && !downloading;
+        OcrInstallLanguage.SetResourceReference(ContentControl.ContentProperty, UiText.Key(
+            selection is not null && selection.Code == _failedOcrDownload ? "OcrDownloadRetry" : "OcrInstallLanguage"));
+        OcrCatalog.IsEnabled = OcrCatalogSearch.IsEnabled = !downloading;
         OcrModelSize.Text = selection is null ? "" : UiText.Format("OcrDownloadSize", selection.DownloadSize);
-        OcrCancelDownload.Visibility = _ocrDownload is null ? Visibility.Collapsed : Visibility.Visible;
+        OcrCancelDownload.Visibility = OcrDownloadProgress.Visibility = downloading ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OcrCancelDownload_Click(object sender, RoutedEventArgs e) => _ocrDownload?.Cancel();
@@ -176,11 +181,21 @@ public partial class MainWindow
 
         using var request = new CancellationTokenSource();
         _ocrDownload = request;
+        _failedOcrDownload = null;
+        OcrDownloadProgress.Value = 0;
         UpdateOcrInstallAction();
         OcrDownloadStatus.Text = UiText.Format("OcrDownloadWorking", model.DisplayName);
+        var progress = new Progress<int>(bytes =>
+        {
+            if (_ocrDownload != request || request.IsCancellationRequested)
+                return;
+            var percent = (int)(100L * bytes / model.Size);
+            OcrDownloadProgress.Value = percent;
+            OcrDownloadStatus.Text = UiText.Format("OcrDownloadProgress", percent, bytes / 1_048_576d, model.Size / 1_048_576d);
+        });
         try
         {
-            await OcrLanguages.InstallAsync(model, request.Token);
+            await OcrLanguages.InstallAsync(model, progress, request.Token);
             OcrDownloadStatus.Text = UiText.Format("OcrDownloadSuccess", model.DisplayName);
             RefreshOcrModels();
         }
@@ -188,9 +203,15 @@ public partial class MainWindow
         {
             OcrDownloadStatus.Text = "";
         }
+        catch (TimeoutException)
+        {
+            _failedOcrDownload = model.Code;
+            OcrDownloadStatus.Text = UiText.Get("OcrDownloadStalled");
+        }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or HttpRequestException or OperationCanceledException)
         {
             Trace.WriteLine(ex);
+            _failedOcrDownload = model.Code;
             OcrDownloadStatus.Text = UiText.Get("OcrDownloadFailure");
         }
         finally

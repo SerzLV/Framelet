@@ -25,6 +25,44 @@ internal static partial class Program
             "Native mouse and keyboard input share the correct Win32 layout");
     }
 
+    private static void ScrollCaptureSuggestsContinuousOnlyForSmallShifts()
+    {
+        var capture = new ScrollStitcher(LongFrame(0));
+        Require(capture.TryAppendAutoFrame(LongFrame(40)) == ScrollFrameResult.FramePending && capture.FrameCount == 1,
+            "The first small shift waits for confirmation without adding a whole frame");
+        Require(capture.TryAppendAutoFrame(LongFrame(40)) == ScrollFrameResult.Unchanged && capture.FrameCount == 1,
+            "An unchanged frame cannot confirm ordinary scrolling");
+        Require(capture.TryAppendAutoFrame(LongFrame(80)) == ScrollFrameResult.ScrollSuggested && capture.FrameCount == 1,
+            "Two confidently aligned small shifts offer switching to ordinary scrolling");
+        Require(capture.ResolvePendingFrames(wholeFrame: false).Result == ScrollFrameResult.Added
+            && capture.FrameCount == 3 && ToPixels(capture.Finish()).SequenceEqual(ToPixels(LongFrame(0, 560))),
+            "Switching modes keeps the start and stitches both buffered frames without duplicate rows");
+
+        var kept = new ScrollStitcher(LongFrame(0));
+        kept.TryAppendAutoFrame(LongFrame(40));
+        kept.TryAppendAutoFrame(LongFrame(80));
+        Require(kept.ResolvePendingFrames(wholeFrame: true).Result == ScrollFrameResult.Added && kept.Height == 3 * 480
+            && kept.TryAppendAutoFrame(LongFrame(120)) == ScrollFrameResult.Added && kept.Height == 4 * 480,
+            "Accepting whole frames preserves the buffered screens and does not prompt again");
+
+        var paged = new ScrollStitcher(LongFrame(0));
+        paged.TryAppendAutoFrame(LongFrame(40));
+        Require(paged.TryAppendAutoFrame(LongFrame(350)) == ScrollFrameResult.Added && paged.Height == 3 * 480
+            && !paged.HasPendingFrames, "A larger page turn keeps whole frames after one small shift");
+
+        var stopped = new ScrollStitcher(LongFrame(0));
+        stopped.TryAppendAutoFrame(LongFrame(40));
+        Require(stopped.ResolvePendingFrames(wholeFrame: true).Result == ScrollFrameResult.Added && stopped.FrameCount == 2,
+            "Stopping before the second shift still retains the first buffered frame");
+
+        var footer = new ScrollStitcher(FrameWithBand(0, 400, 340, 60));
+        footer.TryAppendAutoFrame(FrameWithBand(40, 400, 340, 60));
+        Require(footer.TryAppendAutoFrame(FrameWithBand(80, 400, 340, 60)) == ScrollFrameResult.ScrollSuggested
+            && footer.ResolvePendingFrames(wholeFrame: false).Result == ScrollFrameResult.Added
+            && ToPixels(footer.Finish()).SequenceEqual(ToPixels(FrameWithBand(0, 480, 420, 60))),
+            "The switch also preserves the page and one fixed footer");
+    }
+
     private static void ScrollStitchingPreservesContent()
     {
         var document = DrawCards();

@@ -26,6 +26,7 @@ internal static partial class Program
             OcrReadsGroupedIbanBelowItsLabel();
             OcrFindsNamesForRedaction();
             OcrLanguageCatalogKeepsTheDefault(directory.FullName);
+            OcrDownloadsWaitWhileBytesArrive().GetAwaiter().GetResult();
             RegionSelectionUsesDesktopCoordinates();
             RegionSelectionResizesFromCorners();
             RegionSelectionMovesAndPlacesToolbar();
@@ -36,6 +37,7 @@ internal static partial class Program
             ScrollStitchingPreservesContent();
             ScrollStitchingKeepsOneFooter();
             ScrollCaptureKeepsWholeFrames();
+            ScrollCaptureSuggestsContinuousOnlyForSmallShifts();
             PrintScreenHookRestarts();
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             app.Resources.MergedDictionaries.Add(new ResourceDictionary

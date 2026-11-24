@@ -1,10 +1,59 @@
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using Framelet;
 
 internal static partial class Program
 {
+    private static async Task OcrDownloadsWaitWhileBytesArrive()
+    {
+        byte[] expected = [1, 2, 3, 4, 5];
+        var reports = new List<int>();
+        var progress = new DownloadProgress(reports);
+        var timeout = TimeSpan.FromMilliseconds(500);
+        using var slow = new SlowDownload(expected, TimeSpan.FromMilliseconds(150));
+        var read = await OcrLanguages.ReadModelAsync(slow, expected.Length, progress, timeout, default);
+        Require(read.SequenceEqual(expected) && reports.SequenceEqual([1, 2, 3, 4, 5]),
+            "Steady data can arrive after the old total deadline without a timeout and progress reaches the expected size");
+
+        using var stalled = new SlowDownload(expected, Timeout.InfiniteTimeSpan);
+        try
+        {
+            await OcrLanguages.ReadModelAsync(stalled, expected.Length, progress, TimeSpan.FromMilliseconds(30), default);
+            Require(false, "An idle transfer should time out");
+        }
+        catch (TimeoutException)
+        {
+            Require(true, "A transfer that stops delivering bytes raises an idle timeout");
+        }
+
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(30));
+        try
+        {
+            await OcrLanguages.ReadModelAsync(stalled, expected.Length, progress, timeout, cancellation.Token);
+            Require(false, "A canceled transfer should stop");
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            Require(true, "Cancel interrupts a pending model download without reporting an idle timeout");
+        }
+    }
+
+    private sealed class DownloadProgress(List<int> reports) : IProgress<int>
+    {
+        public void Report(int bytes) => reports.Add(bytes);
+    }
+
+    private sealed class SlowDownload(byte[] data, TimeSpan interval) : MemoryStream(data)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(interval, cancellationToken);
+            return Read(buffer.Span[..1]);
+        }
+    }
+
     private static void OcrLanguageCatalogKeepsTheDefault(string root)
     {
         var languages = OcrLanguages.Catalog.ToArray();

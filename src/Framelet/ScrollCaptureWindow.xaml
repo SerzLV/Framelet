@@ -41,7 +41,12 @@
             </CheckBox>
             <Button x:Name="TailButton" Content="{DynamicResource Ui.ScrollTailAdd}" Click="AddTail_Click"
                     HorizontalAlignment="Left" Visibility="Collapsed" Margin="0,0,0,8"/>
-            <WrapPanel HorizontalAlignment="Right">
+            <WrapPanel x:Name="FrameModeDecision" HorizontalAlignment="Right" Visibility="Collapsed" Margin="0,0,0,8">
+                <Button Content="{DynamicResource Ui.ScrollSwitchToContinuous}" Click="SwitchToScrolling_Click"
+                        Style="{StaticResource PrimaryButton}" Margin="0,0,6,4"/>
+                <Button Content="{DynamicResource Ui.ScrollKeepWholeFrames}" Click="KeepWholeFrames_Click" Margin="0,0,0,4"/>
+            </WrapPanel>
+            <WrapPanel x:Name="CaptureCommands" HorizontalAlignment="Right">
                 <Button x:Name="FinishButton" Content="{DynamicResource Ui.ScrollFinish}" Click="Finish_Click" Margin="0,0,7,0"/>
                 <Button x:Name="AddFrame" Content="{DynamicResource Ui.ScrollAddFrame}" Click="AddFrame_Click" Margin="0,0,7,0"/>
                 <Button x:Name="AutoScrollButton" Style="{StaticResource PrimaryButton}" Click="AutoScroll_Click" MinWidth="116"

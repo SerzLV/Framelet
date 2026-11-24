@@ -351,4 +351,11 @@
     <sys:String x:Key="Ui.OcrLanguage_kor">Корейский</sys:String>
     <sys:String x:Key="Ui.OcrLanguage_chi_sim">Китайский (упрощённый)</sys:String>
     <sys:String x:Key="Ui.OcrLanguage_chi_tra">Китайский (традиционный)</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadProgress">{0}% · {1:0.0} из {2:0.0} МБ</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadProgressLabel">Ход загрузки модели OCR</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadRetry">Повторить</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadStalled">За 30 секунд не поступило данных. Загрузку можно повторить.</sys:String>
+    <sys:String x:Key="Ui.ScrollSuggestContinuous">Похоже, клавиша ↓ прокручивает страницу. Выберите, как продолжить.</sys:String>
+    <sys:String x:Key="Ui.ScrollSwitchToContinuous">Обычная прокрутка</sys:String>
+    <sys:String x:Key="Ui.ScrollKeepWholeFrames">Продолжить по кадрам</sys:String>
 </ResourceDictionary>

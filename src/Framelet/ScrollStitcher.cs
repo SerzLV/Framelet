@@ -9,7 +9,9 @@ internal enum ScrollFrameResult
     Added,
     Unchanged,
     NoOverlap,
-    Limit
+    Limit,
+    FramePending,
+    ScrollSuggested
 }
 
 internal sealed class ScrollStitcher
@@ -21,6 +23,7 @@ internal sealed class ScrollStitcher
     private readonly int _frameHeight;
     private readonly int _stride;
     private readonly List<byte[]> _parts = [];
+    private readonly List<FrameProbe> _frameProbes = [];
     private ulong[][] _previousRows;
     private byte[]? _frameBuffer;
     private byte[]? _footer;
@@ -41,6 +44,51 @@ internal sealed class ScrollStitcher
 
     internal int Height { get; private set; }
     internal int FrameCount => _frameCount + (_tail is null ? 0 : 1);
+    internal bool HasPendingFrames => _frameProbes.Count > 0;
+
+    internal ScrollFrameResult TryAppendAutoFrame(BitmapSource frame)
+    {
+        if (_frameCount != 1 || _tail is not null || frame.PixelWidth != _width || frame.PixelHeight != _frameHeight)
+            return TryAppend(frame, wholeFrame: true);
+        if (_frameProbes.Count == 2)
+            return ScrollFrameResult.ScrollSuggested;
+
+        var pixels = _frameBuffer ??= AllocateFrame();
+        CopyPixels(frame, pixels);
+        var rows = ReadRows(pixels);
+        var pending = _frameProbes.LastOrDefault();
+        var previous = pending?.Rows ?? _previousRows;
+        if (Matches(rows, previous))
+            return ScrollFrameResult.Unchanged;
+
+        var (offset, contentHeight) = FindAlignment(previous, rows, pending?.ContentHeight ?? _frameHeight);
+        // A normal arrow-key scroll preserves most of the viewport. A page turn can overlap by a much larger step.
+        if (offset > 0 && offset <= Math.Min(120, contentHeight / 5))
+        {
+            _frameProbes.Add(new FrameProbe(frame, rows, contentHeight));
+            return _frameProbes.Count == 2 ? ScrollFrameResult.ScrollSuggested : ScrollFrameResult.FramePending;
+        }
+
+        if (pending is null)
+            return AppendRows(pixels, rows, _frameHeight, _frameHeight);
+        var (result, _) = ResolvePendingFrames(wholeFrame: true);
+        return result == ScrollFrameResult.Added ? TryAppend(frame, wholeFrame: true) : result;
+    }
+
+    internal (ScrollFrameResult Result, BitmapSource? LastAdded) ResolvePendingFrames(bool wholeFrame)
+    {
+        var result = ScrollFrameResult.Unchanged;
+        BitmapSource? lastAdded = null;
+        foreach (var probe in _frameProbes)
+        {
+            result = TryAppend(probe.Image, wholeFrame);
+            if (result != ScrollFrameResult.Added)
+                break;
+            lastAdded = probe.Image;
+        }
+        _frameProbes.Clear();
+        return (result, lastAdded);
+    }
 
     internal ScrollFrameResult TryAppend(BitmapSource frame, bool wholeFrame = false)
     {
@@ -56,24 +104,30 @@ internal sealed class ScrollStitcher
         if (wholeFrame)
             return AppendRows(pixels, rows, _frameHeight, _frameHeight);
 
-        var contentHeight = _frameHeight - (_footer?.Length ?? 0) / _stride;
-        var offset = 0;
-        if (_footer is null)
-        {
-            var stationaryTop = FindStationaryBottom(rows);
-            if (_frameHeight - stationaryTop >= MinimumFooterRows)
-            {
-                offset = FindOffset(_previousRows, rows, stationaryTop);
-                if (offset > 0)
-                    contentHeight = ConfirmFooterTop(rows, stationaryTop, offset);
-            }
-        }
-        if (contentHeight == _frameHeight || _footer is not null)
-            offset = FindOffset(_previousRows, rows, contentHeight);
+        var (offset, contentHeight) = FindAlignment(_previousRows, rows, _frameHeight - (_footer?.Length ?? 0) / _stride);
         if (offset <= 0)
             return ScrollFrameResult.NoOverlap;
 
         return AppendRows(pixels, rows, contentHeight, offset);
+    }
+
+    private (int Offset, int ContentHeight) FindAlignment(ulong[][] previous, ulong[][] rows, int contentHeight)
+    {
+        var offset = 0;
+        var hasFooter = contentHeight != _frameHeight;
+        if (!hasFooter)
+        {
+            var stationaryTop = FindStationaryBottom(previous, rows);
+            if (_frameHeight - stationaryTop >= MinimumFooterRows)
+            {
+                offset = FindOffset(previous, rows, stationaryTop);
+                if (offset > 0)
+                    contentHeight = ConfirmFooterTop(previous, rows, stationaryTop, offset);
+            }
+        }
+        if (contentHeight == _frameHeight || hasFooter)
+            offset = FindOffset(previous, rows, contentHeight);
+        return (offset, contentHeight);
     }
 
     private ScrollFrameResult AppendRows(byte[] pixels, ulong[][] rows, int contentHeight, int offset)
@@ -151,18 +205,20 @@ internal sealed class ScrollStitcher
 
     private bool ExceedsSizeLimit(int height) => height > MaximumHeight || (long)height * _width > MaximumPixels;
 
-    private bool MatchesPrevious(ulong[][] rows) =>
-        rows.Zip(_previousRows).All(pair => pair.First.AsSpan().SequenceEqual(pair.Second));
+    private bool MatchesPrevious(ulong[][] rows) => Matches(rows, _previousRows);
 
-    private int FindStationaryBottom(ulong[][] rows)
+    private static bool Matches(ulong[][] rows, ulong[][] previous) =>
+        rows.Zip(previous).All(pair => pair.First.AsSpan().SequenceEqual(pair.Second));
+
+    private int FindStationaryBottom(ulong[][] previous, ulong[][] rows)
     {
         var top = _frameHeight;
-        while (top > 0 && MatchesRow(rows, top - 1, top - 1))
+        while (top > 0 && MatchesRow(previous, rows, top - 1, top - 1))
             top--;
         return top;
     }
 
-    private int ConfirmFooterTop(ulong[][] rows, int stationaryTop, int offset)
+    private int ConfirmFooterTop(ulong[][] previous, ulong[][] rows, int stationaryTop, int offset)
     {
         // Ordinary blank or repeated rows may match at both offsets. A fixed footer covers different content.
         var top = _frameHeight;
@@ -170,7 +226,7 @@ internal sealed class ScrollStitcher
         var minimumDifferences = Math.Min(MinimumFooterRows, offset);
         for (var y = stationaryTop; y < Math.Min(_frameHeight, stationaryTop + offset); y++)
         {
-            if (MatchesRow(rows, y, y - offset))
+            if (MatchesRow(previous, rows, y, y - offset))
                 continue;
             if (differences++ == 0)
                 top = y;
@@ -180,15 +236,17 @@ internal sealed class ScrollStitcher
         return _frameHeight;
     }
 
-    private bool MatchesRow(ulong[][] rows, int previousY, int currentY)
+    private static bool MatchesRow(ulong[][] previous, ulong[][] rows, int previousY, int currentY)
     {
         for (var strip = 0; strip < rows.Length; strip++)
         {
-            if (_previousRows[strip][previousY] != rows[strip][currentY])
+            if (previous[strip][previousY] != rows[strip][currentY])
                 return false;
         }
         return true;
     }
+
+    private sealed record FrameProbe(BitmapSource Image, ulong[][] Rows, int ContentHeight);
 
     private void TrimBottom(int bytes)
     {

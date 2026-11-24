@@ -38,7 +38,8 @@ internal static class OcrLanguages
     private static readonly Lazy<Dictionary<string, string>> NativeNames = new(() => CultureInfo.GetCultures(CultureTypes.NeutralCultures)
         .GroupBy(culture => culture.ThreeLetterISOLanguageName, StringComparer.Ordinal)
         .ToDictionary(group => group.Key, group => group.First().NativeName, StringComparer.Ordinal));
-    private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromMinutes(1) };
+    private static readonly TimeSpan DownloadIdleTimeout = TimeSpan.FromSeconds(30);
+    private static readonly HttpClient Client = new() { Timeout = Timeout.InfiniteTimeSpan };
 
     internal static IEnumerable<OcrLanguage> Catalog => Models.Value.Values;
     internal static OcrLanguage? Find(string code) => Models.Value.GetValueOrDefault(code);
@@ -80,22 +81,68 @@ internal static class OcrLanguages
         return DownloadDirectory;
     }
 
-    internal static async Task InstallAsync(OcrLanguage language, CancellationToken token)
+    internal static async Task InstallAsync(OcrLanguage language, IProgress<int> progress, CancellationToken token)
     {
         if (IsInstalled(language))
             return;
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(TimeSpan.FromMinutes(1));
         var url = $"https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/{Revision}/{language.Code}.traineddata";
-        using var response = await Client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+        using var response = await GetModelResponseAsync(url, token).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        await using var input = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
-        var data = new byte[language.Size];
-        await input.ReadExactlyAsync(data, timeout.Token).ConfigureAwait(false);
-        if (await input.ReadAsync(new byte[1], timeout.Token).ConfigureAwait(false) != 0 || !MatchesModel(language, data))
+        await using var input = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+        var data = await ReadModelAsync(input, language.Size, progress, DownloadIdleTimeout, token).ConfigureAwait(false);
+        if (!MatchesModel(language, data))
             throw new InvalidDataException("Unexpected OCR model content.");
-        timeout.Token.ThrowIfCancellationRequested();
+        token.ThrowIfCancellationRequested();
         HistoryStore.AtomicWrite(ModelPath(language.Code), output => output.Write(data));
+    }
+
+    private static async Task<HttpResponseMessage> GetModelResponseAsync(string url, CancellationToken token)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(DownloadIdleTimeout);
+        try
+        {
+            return await Client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            throw new TimeoutException("The OCR model server did not respond.");
+        }
+    }
+
+    internal static async Task<byte[]> ReadModelAsync(Stream stream, int size, IProgress<int> progress,
+        TimeSpan idleTimeout, CancellationToken token)
+    {
+        var data = new byte[size];
+        using var idle = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var read = 0;
+        var percent = 0;
+        try
+        {
+            while (read < size)
+            {
+                idle.CancelAfter(idleTimeout);
+                var length = await stream.ReadAsync(data.AsMemory(read), idle.Token).ConfigureAwait(false);
+                idle.CancelAfter(Timeout.InfiniteTimeSpan);
+                if (length == 0)
+                    throw new EndOfStreamException("The OCR model download ended early.");
+                read += length;
+                var nextPercent = (int)(100L * read / size);
+                if (nextPercent != percent)
+                {
+                    percent = nextPercent;
+                    progress.Report(read);
+                }
+            }
+            idle.CancelAfter(idleTimeout);
+            if (await stream.ReadAsync(new byte[1], idle.Token).ConfigureAwait(false) != 0)
+                throw new InvalidDataException("Unexpected OCR model size.");
+            return data;
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested && idle.IsCancellationRequested)
+        {
+            throw new TimeoutException("The OCR model download stopped receiving data.");
+        }
     }
 
     internal static bool MatchesModel(OcrLanguage language, byte[] data)

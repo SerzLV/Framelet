@@ -18,6 +18,7 @@ internal partial class ScrollCaptureWindow : Window
     private readonly TaskCompletionSource<BitmapSource?> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private bool _autoScrolling;
     private bool _stopAutoScroll;
+    private bool _awaitingFrameModeChoice;
     private bool _atLimit;
     private bool _canAddTail;
     private bool _tailAdded;
@@ -64,7 +65,9 @@ internal partial class ScrollCaptureWindow : Window
 
     private async void AddFrame_Click(object sender, RoutedEventArgs e) => await CaptureNextFrameAsync();
 
-    private void WholeFrames_Click(object sender, RoutedEventArgs e)
+    private void WholeFrames_Click(object sender, RoutedEventArgs e) => UpdateFrameModeInstructions();
+
+    private void UpdateFrameModeInstructions()
     {
         CaptureInstructions.Text = CaptureWholeFrames ? UiText.Get("ScrollWholeFramesTip") : _scrollInstructions;
         _canAddTail = false;
@@ -80,18 +83,20 @@ internal partial class ScrollCaptureWindow : Window
             return;
         }
 
-        if (!_capturing && !_closed && !_atLimit && !_tailAdded)
+        if (!_capturing && !_closed && !_atLimit && !_tailAdded && !_awaitingFrameModeChoice)
             await CaptureFrameAsync(automatic: false);
     }
 
-    private async void AutoScroll_Click(object sender, RoutedEventArgs e)
+    private async void AutoScroll_Click(object sender, RoutedEventArgs e) => await StartAutoScrollAsync();
+
+    private async Task StartAutoScrollAsync()
     {
         if (_autoScrolling)
         {
             _stopAutoScroll = true;
             return;
         }
-        if (_capturing || _closed || _atLimit || _tailAdded)
+        if (_capturing || _closed || _atLimit || _tailAdded || _awaitingFrameModeChoice)
             return;
 
         _autoScrolling = true;
@@ -125,9 +130,13 @@ internal partial class ScrollCaptureWindow : Window
                     return;
                 }
                 var result = await CaptureFrameAsync(automatic: true);
-                if (result == ScrollFrameResult.Added)
+                if (result is ScrollFrameResult.Added or ScrollFrameResult.FramePending)
                 {
                     unchangedAttempts = 0;
+                }
+                else if (result == ScrollFrameResult.ScrollSuggested)
+                {
+                    return;
                 }
                 else if (result == ScrollFrameResult.Unchanged && !_closed && !_stopAutoScroll)
                 {
@@ -163,17 +172,85 @@ internal partial class ScrollCaptureWindow : Window
         }
         finally
         {
+            if (!_closed && !_awaitingFrameModeChoice && _stitcher.HasPendingFrames)
+            {
+                try
+                {
+                    await CommitPendingFramesAsync(wholeFrame: true);
+                }
+                catch (Exception ex)
+                {
+                    _result.TrySetException(ex);
+                }
+            }
             _autoScrolling = false;
             if (!_closed)
             {
                 UpdateActions();
-                if (_canAddTail)
+                if (_canAddTail || _awaitingFrameModeChoice)
                 {
                     UpdateLayout();
                     MoveOutsideSelection();
                 }
             }
         }
+    }
+
+    private async void SwitchToScrolling_Click(object sender, RoutedEventArgs e) => await ChooseFrameModeAsync(wholeFrame: false);
+    private async void KeepWholeFrames_Click(object sender, RoutedEventArgs e) => await ChooseFrameModeAsync(wholeFrame: true);
+
+    private async Task ChooseFrameModeAsync(bool wholeFrame)
+    {
+        if (_closed || _capturing || _autoScrolling || !_awaitingFrameModeChoice)
+            return;
+
+        _capturing = true;
+        UpdateActions();
+        ScrollFrameResult result;
+        try
+        {
+            WholeFrames.IsChecked = wholeFrame;
+            UpdateFrameModeInstructions();
+            result = await CommitPendingFramesAsync(wholeFrame);
+            _awaitingFrameModeChoice = false;
+            if (!_closed && result == ScrollFrameResult.NoOverlap)
+                CaptureStatus.Text = UiText.Get("ScrollNoOverlap");
+        }
+        catch (Exception ex)
+        {
+            _result.TrySetException(ex);
+            return;
+        }
+        finally
+        {
+            _capturing = false;
+            if (!_closed)
+                UpdateActions();
+        }
+
+        if (!_closed && result == ScrollFrameResult.Added)
+        {
+            UpdateLayout();
+            MoveOutsideSelection();
+            await StartAutoScrollAsync();
+        }
+    }
+
+    private async Task<ScrollFrameResult> CommitPendingFramesAsync(bool wholeFrame)
+    {
+        var (result, lastAdded) = await Task.Run(() => _stitcher.ResolvePendingFrames(wholeFrame));
+        if (!_closed)
+        {
+            if (lastAdded is not null)
+                LastFrame.Source = lastAdded;
+            UpdateCaptureProgress();
+            if (result == ScrollFrameResult.Limit)
+            {
+                _atLimit = true;
+                CaptureStatus.Text = UiText.Get("ScrollLimit");
+            }
+        }
+        return result;
     }
 
     private async Task<bool> ScrollNextAsync(int pointOffset)
@@ -368,14 +445,16 @@ internal partial class ScrollCaptureWindow : Window
 
             var (frame, result) = capture;
             if (result == ScrollFrameResult.Added)
-            {
                 LastFrame.Source = frame;
-                CaptureProgress.Text = UiText.Format("ScrollFrameCount", _stitcher.FrameCount, _stitcher.Height);
-            }
+            UpdateCaptureProgress();
+            if (result == ScrollFrameResult.ScrollSuggested)
+                _awaitingFrameModeChoice = true;
             var runningStatus = CaptureWholeFrames ? "ScrollAutoFramesRunning" : "ScrollAutoRunning";
             var status = result switch
             {
                 ScrollFrameResult.Added => automatic ? runningStatus : "ScrollFrameAdded",
+                ScrollFrameResult.FramePending => runningStatus,
+                ScrollFrameResult.ScrollSuggested => "ScrollSuggestContinuous",
                 ScrollFrameResult.Unchanged => automatic ? runningStatus : CaptureWholeFrames ? "ScrollAutoFramesStopped" : "ScrollNoChange",
                 ScrollFrameResult.Limit => "ScrollLimit",
                 _ => "ScrollNoOverlap"
@@ -400,6 +479,9 @@ internal partial class ScrollCaptureWindow : Window
         }
     }
 
+    private void UpdateCaptureProgress() =>
+        CaptureProgress.Text = UiText.Format("ScrollFrameCount", _stitcher.FrameCount, _stitcher.Height);
+
     private async Task<(BitmapSource Frame, ScrollFrameResult Result)?> TryCaptureFrameAsync(int settleMilliseconds, bool automatic)
     {
         await Task.Delay(settleMilliseconds);
@@ -418,7 +500,8 @@ internal partial class ScrollCaptureWindow : Window
 
         var frame = await CaptureUnobstructedAsync(_selection);
         var wholeFrame = CaptureWholeFrames;
-        return frame is null ? null : (frame, await Task.Run(() => _stitcher.TryAppend(frame, wholeFrame)));
+        return frame is null ? null : (frame, await Task.Run(() => automatic && wholeFrame
+            ? _stitcher.TryAppendAutoFrame(frame) : _stitcher.TryAppend(frame, wholeFrame)));
     }
 
     private async Task<BitmapSource?> CaptureUnobstructedAsync(Drawing.Rectangle bounds)
@@ -518,11 +601,15 @@ internal partial class ScrollCaptureWindow : Window
 
     private void UpdateActions()
     {
-        AddFrame.IsEnabled = !_capturing && !_autoScrolling && !_atLimit && !_tailAdded;
-        FinishButton.IsEnabled = !_capturing && !_autoScrolling;
-        AutoScrollButton.IsEnabled = _autoScrolling || (!_capturing && !_atLimit && !_tailAdded);
-        WholeFrames.IsEnabled = !_capturing && !_autoScrolling && _stitcher.FrameCount == 1;
-        CaptureInstructions.Visibility = _canAddTail ? Visibility.Collapsed : Visibility.Visible;
+        var ready = !_capturing && !_autoScrolling && !_awaitingFrameModeChoice;
+        AddFrame.IsEnabled = ready && !_atLimit && !_tailAdded;
+        FinishButton.IsEnabled = ready;
+        AutoScrollButton.IsEnabled = !_awaitingFrameModeChoice && (_autoScrolling || (ready && !_atLimit && !_tailAdded));
+        WholeFrames.IsEnabled = ready && _stitcher.FrameCount == 1;
+        FrameModeDecision.Visibility = _awaitingFrameModeChoice ? Visibility.Visible : Visibility.Collapsed;
+        FrameModeDecision.IsEnabled = !_capturing && !_autoScrolling;
+        CaptureCommands.Visibility = _awaitingFrameModeChoice ? Visibility.Collapsed : Visibility.Visible;
+        CaptureInstructions.Visibility = _canAddTail || _awaitingFrameModeChoice ? Visibility.Collapsed : Visibility.Visible;
         TailButton.Visibility = _canAddTail ? Visibility.Visible : Visibility.Collapsed;
         TailButton.IsEnabled = !_capturing && !_autoScrolling && !_atLimit;
         TailButton.SetResourceReference(ContentControl.ContentProperty, UiText.Key(_tailAdded ? "ScrollTailAdjust" : "ScrollTailAdd"));
@@ -533,7 +620,7 @@ internal partial class ScrollCaptureWindow : Window
 
     private async void Finish_Click(object sender, RoutedEventArgs e)
     {
-        if (_capturing || _autoScrolling)
+        if (_capturing || _autoScrolling || _awaitingFrameModeChoice)
             return;
 
         _capturing = true;

@@ -324,4 +324,11 @@
     <sys:String x:Key="Ui.OcrDownloadFailure">Could not install the language. Check your connection and try again.</sys:String>
     <sys:String x:Key="Ui.OcrModelUnavailable">This OCR model is unavailable. Install it in OCR settings.</sys:String>
     <sys:String x:Key="Ui.OcrNoLanguages">No matching languages available to install.</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadProgress">{0}% · {1:0.0} of {2:0.0} MB</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadProgressLabel">OCR model download progress</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadRetry">Retry</sys:String>
+    <sys:String x:Key="Ui.OcrDownloadStalled">No data received for 30 seconds. You can retry the download.</sys:String>
+    <sys:String x:Key="Ui.ScrollSuggestContinuous">The ↓ key appears to scroll this page. Choose how to continue.</sys:String>
+    <sys:String x:Key="Ui.ScrollSwitchToContinuous">Use scrolling capture</sys:String>
+    <sys:String x:Key="Ui.ScrollKeepWholeFrames">Keep whole frames</sys:String>
 </ResourceDictionary>

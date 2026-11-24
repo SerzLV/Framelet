@@ -948,6 +948,9 @@
                                 </DockPanel>
                                 <TextBlock x:Name="OcrDownloadStatus" Style="{StaticResource MutedText}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,5,0,0" AutomationProperties.LiveSetting="Polite"/>
+                                <ProgressBar x:Name="OcrDownloadProgress" Maximum="100" Height="4" Margin="0,6,0,0" Visibility="Collapsed"
+                                             Foreground="{StaticResource Accent}" Background="{StaticResource Stroke}"
+                                             AutomationProperties.Name="{DynamicResource Ui.OcrDownloadProgressLabel}"/>
                             </StackPanel>
                         </ScrollViewer>
                         <ScrollViewer x:Name="OcrTemplatesSettingsPage" Grid.Row="2" Visibility="Collapsed"
