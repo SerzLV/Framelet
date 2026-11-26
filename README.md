@@ -1,23 +1,60 @@
-# Framelet
+<p align="center">
+  <strong>English</strong> · <a href="README.ru.md">Русский</a>
+</p>
 
-**English** · [Русский](README.ru.md)
+<p align="center">
+  <img src="docs/images/framelet-social-preview.png" width="780" alt="Framelet for Windows. The editor shows a curved arrow, an ellipse, and the offline OCR panel.">
+</p>
 
-[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=202020)](https://buymeacoffee.com/serzlv)
+<p align="center">
+  <strong>Capture an entire page. Copy text straight from the image.</strong>
+</p>
 
-**Capture screenshots, add annotations, and copy text from images on Windows.**
+<p align="center">
+  <strong><a href="https://github.com/SerzLV/Framelet/releases/latest/download/Framelet.exe">Download EXE for Windows x64</a></strong>
+  · <a href="https://github.com/SerzLV/Framelet/releases/latest/download/Framelet-win-x64.zip">ZIP</a>
+  · <a href="https://github.com/SerzLV/Framelet/releases/latest">Release notes</a>
+</p>
 
-Press `Print Screen` to select an area and copy it with `Enter` or `Ctrl+C`. Use `Ctrl+Shift+1` to open a new capture in the full editor.
+<p align="center">
+  <a href="#see-it-in-action">Watch the demo</a> · <a href="#quick-start">Quick start</a>
+  · <a href="#keyboard-shortcuts">Shortcuts</a> · <a href="#support">Support</a>
+</p>
 
-[**Download Framelet for Windows x64**](https://github.com/SerzLV/Framelet/releases/latest). Run `Framelet.exe` or use the ZIP bundle with license notices. The .NET Desktop Runtime is included. To package the current source, follow the [build instructions](#build-from-source).
+Framelet is a portable Windows screenshot tool with editable annotations and offline OCR. The EXE includes the .NET Desktop Runtime.
 
-![Framelet editor showing a curved arrow, an ellipse, and recognized text](docs/images/framelet-editor.png)
+## See it in action
 
-## What's new in 1.2.0
+The demo uses a fictional invoice. Framelet recognizes the invoice number, total, and email, highlights their locations on the image, and covers just the email before sharing.
 
-- **More OCR languages.** Install from a catalog of 123 Tesseract language models. Downloads show progress and can be canceled or retried. Installed models work offline, and you can choose which ones Auto uses together.
-- **OCR templates.** Create rules for invoice numbers, dates, amounts, IBANs, and other labelled values. Manage rules in Settings or from the editor, and test them on the current screenshot.
-- **Find and cover fields.** Hover over a result to locate it on the screenshot, or highlight all results at once. Cover selected categories, names only, or every detected field. OCR also detects IBANs, currency amounts, and labelled totals.
-- **Capture paginated screens.** The **Whole frames (↓)** mode captures apps that advance with the Down key. If two small shifts look like ordinary scrolling, Framelet offers to switch modes and keeps the beginning of the capture.
+![Framelet highlights three fields on an invoice and covers the email address before sharing](docs/images/framelet-ocr-demo.gif)
+
+## Quick start
+
+| To | Do this |
+| --- | --- |
+| Copy a region | Press `Print Screen`, select an area, and press `Enter` or `Ctrl+C`. |
+| Open a new capture in the editor | Press `Ctrl+Shift+1` and select the area. |
+| Copy text from an image | In the editor, press `Ctrl+E`, select words on the image, and press `Ctrl+C`. |
+| Reopen your latest capture | Press `Ctrl+Shift+5`. |
+
+## Examples
+
+### Show exactly where a bug happens
+
+Open the capture in the editor. Use a curved arrow to point at the control, numbered markers to show the order of actions, and an inline text annotation for the expected result. You can select an existing annotation and move it or change its color and thickness. Copy the finished image into the issue.
+
+### Pull an invoice number out of a screenshot
+
+Press `Ctrl+E` and click a detected value to copy it. Set up an **OCR template** called **Invoice number** with the labels `Invoice No.` and `Rēķina Nr.` on separate lines. Select **Code** as the format and test the rule on the current image. Use **Hide fields** to cover an email or another field before sending the screenshot.
+
+### Share a page that doesn't fit on screen
+
+Press `Ctrl+Shift+4`, select the page area, and start **Auto-scroll**. Framelet joins the frames into one image. For an app that changes screens with the Down key, choose **Whole frames (↓)**. [Scrolling capture instructions](#capture-a-long-page)
+
+### Find an old screenshot by what it says
+
+Type a phrase you remember into history search, such as `Design review`. Framelet searches filenames and recognized text. Open a result to continue editing, or select several to recycle in one action.
 
 ## Features
 
@@ -30,10 +67,12 @@ Press `Print Screen` to select an area and copy it with `Enter` or `Ctrl+C`. Use
 | **Screenshot history** | Search by name or recognized text, rename or copy an entry, and recycle groups of screenshots. Reopen saved screenshots with editable annotations and up to ten undo steps. |
 | **System tray** | Start Framelet with Windows, capture from the tray, and reopen the latest screenshot. Set a shortcut to show or hide Framelet. The app remembers your language, window size, and four most recent annotation colors. |
 
-The interface is available in English and Russian. Switch languages in Settings.
+The interface is available in English and Russian. OCR language settings are separate. Russian, Latvian, and English are built in, and the catalog offers 123 language models. Install additional models once to use them offline and select which ones Auto uses together. [Framelet 1.2.0 release notes](https://github.com/SerzLV/Framelet/releases/tag/v1.2.0)
 
 <details>
-<summary>Home screen and screenshot history</summary>
+<summary>Editor and history screenshots</summary>
+
+![Framelet editor showing a curved arrow, an ellipse, and recognized text](docs/images/framelet-editor.png)
 
 ![Framelet home screen showing capture modes, recent screenshots, and search](docs/images/framelet-history.png)
 
@@ -151,3 +190,9 @@ OCR uses [Tesseract](https://github.com/charlesw/tesseract) and [tessdata_fast 4
 ## License
 
 Framelet is available under the Apache License 2.0. See [LICENSE](LICENSE) and [third-party notices](THIRD-PARTY-NOTICES.md).
+
+## Support
+
+If Framelet helps with your work, you can support its development on Buy Me a Coffee.
+
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=202020)](https://buymeacoffee.com/serzlv)
