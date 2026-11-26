@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/framelet-social-preview.png" width="780" alt="Framelet для Windows. В редакторе видны плавная стрелка, эллипс и панель распознавания текста.">
+  <img src="docs/images/framelet-social-preview.png" width="780" alt="Framelet для Windows. Панель OCR подсвечивает номер счёта, email и сумму на снимке.">
 </p>
 
 <p align="center">
@@ -72,7 +72,7 @@ Framelet — портативное приложение для скриншот
 <details>
 <summary>Скриншоты редактора и истории</summary>
 
-![Редактор Framelet с плавной стрелкой, эллипсом и результатами распознавания текста](docs/images/framelet-editor.png)
+![Редактор Framelet подсвечивает найденные поля счёта прямо на снимке](docs/images/framelet-editor.png)
 
 ![Главный экран Framelet с режимами захвата, недавними снимками и поиском](docs/images/framelet-history.png)
 

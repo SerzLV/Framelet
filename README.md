@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/framelet-social-preview.png" width="780" alt="Framelet for Windows. The editor shows a curved arrow, an ellipse, and the offline OCR panel.">
+  <img src="docs/images/framelet-social-preview.png" width="780" alt="Framelet for Windows. The OCR panel highlights the invoice number, email, and total on the screenshot.">
 </p>
 
 <p align="center">
@@ -72,7 +72,7 @@ The interface is available in English and Russian. OCR language settings are sep
 <details>
 <summary>Editor and history screenshots</summary>
 
-![Framelet editor showing a curved arrow, an ellipse, and recognized text](docs/images/framelet-editor.png)
+![Framelet editor highlighting detected invoice fields on the screenshot](docs/images/framelet-editor.png)
 
 ![Framelet home screen showing capture modes, recent screenshots, and search](docs/images/framelet-history.png)
 
